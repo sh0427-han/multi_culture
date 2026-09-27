@@ -1,0 +1,11 @@
+name = "multi-culture-backend"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "multi-culture"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[vars]
+ALLOWED_ORIGIN = "https://YOUR_GITHUB_ID.github.io"
