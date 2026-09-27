@@ -321,11 +321,17 @@ function validateMetadata_(metadata) {
     throw new Error('올바르지 않은 탐방 지역입니다.');
   }
 
-  if (!/^\\d{2,10}$/.test(metadata.studentNumber)) {
-    throw new Error('학번은 숫자로 입력해주세요.');
+  metadata.studentNumber = String(metadata.studentNumber || '')
+    .trim()
+    .replace(/[０-９]/g, function(character) {
+      return String(character.charCodeAt(0) - 0xFF10);
+    });
+
+  if (!/^[0-9]{2,10}$/.test(metadata.studentNumber)) {
+    throw new Error('학번은 숫자 2~10자리로 입력해주세요.');
   }
 
-  const name = metadata.studentName.trim();
+  const name = String(metadata.studentName || '').trim();
 
   if (name.length < 2 || name.length > 20) {
     throw new Error('이름을 정확하게 입력해주세요.');
