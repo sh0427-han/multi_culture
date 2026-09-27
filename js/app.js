@@ -17,9 +17,11 @@
   const state = {
     student: null,
     selectedLocationId: null,
-    selectedFile: null,
+    selectedFiles: [],
     galleryLocationId: "",
   };
+
+  let previewUrls = [];
 
   function saveState() {
     sessionStorage.setItem(
@@ -100,6 +102,7 @@
 
   function selectLocation(locationId) {
     state.selectedLocationId = locationId;
+    clearSelectedImages();
     saveState();
     renderExploreScreen();
     showScreen("explore");
@@ -123,22 +126,25 @@
   }
 
   function buildNaverUrl(location) {
-    const query = encodeURIComponent(location.naverQuery);
     const appName = encodeURIComponent(
       `${window.location.origin}${window.location.pathname}`,
     );
 
+    const params =
+      `lat=${location.latitude}&lng=${location.longitude}` +
+      `&zoom=${location.zoom || 20}&appname=${appName}`;
+
     const isAndroid = /Android/i.test(navigator.userAgent);
     if (isAndroid) {
       return (
-        `intent://search?query=${query}&appname=${appName}` +
+        `intent://map?${params}` +
         "#Intent;scheme=nmap;action=android.intent.action.VIEW;" +
         "category=android.intent.category.BROWSABLE;" +
         "package=com.nhn.android.nmap;end"
       );
     }
 
-    return `nmap://search?query=${query}&appname=${appName}`;
+    return `nmap://map?${params}`;
   }
 
   function openNaverMap() {
@@ -147,10 +153,9 @@
       return;
     }
 
-    const deepLink = buildNaverUrl(location);
-    const isDesktop = !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    if (isDesktop) {
+    if (!isMobile) {
       window.open(
         `https://map.naver.com/p/search/${encodeURIComponent(location.naverQuery)}`,
         "_blank",
@@ -159,6 +164,7 @@
       return;
     }
 
+    const deepLink = buildNaverUrl(location);
     const clickedAt = Date.now();
     window.location.href = deepLink;
 
@@ -186,58 +192,195 @@
       state.student.studentName;
     document.getElementById("summaryNumber").textContent =
       state.student.studentNumber;
+    renderSelectedImages();
   }
 
-  function clearSelectedImage() {
-    state.selectedFile = null;
+  function revokePreviewUrls() {
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls = [];
+  }
+
+  function clearSelectedImages() {
+    state.selectedFiles = [];
     const input = document.getElementById("imageInput");
-    const preview = document.getElementById("imagePreview");
-    input.value = "";
-    preview.removeAttribute("src");
-    document.getElementById("previewWrap").classList.add("hidden");
-    document.querySelector(".upload-dropzone").classList.remove("hidden");
-    document.getElementById("submitButton").disabled = true;
+    if (input) {
+      input.value = "";
+    }
+    revokePreviewUrls();
+    if (document.getElementById("previewGrid")) {
+      renderSelectedImages();
+    }
   }
 
-  function onImageSelected(file) {
-    const errorElement = document.getElementById("uploadError");
-    errorElement.textContent = "";
+  function fileKey(file) {
+    return `${file.name}:${file.size}:${file.lastModified}`;
+  }
 
-    if (!file) {
-      clearSelectedImage();
-      return;
-    }
-
+  function validateImage(file) {
     if (!file.type.startsWith("image/")) {
-      errorElement.textContent = "이미지 파일을 선택해 주세요.";
-      clearSelectedImage();
-      return;
+      return "이미지 파일만 추가할 수 있습니다.";
     }
 
     if (file.size > config.maxImageBytes) {
-      errorElement.textContent = "사진 크기는 10MB 이하로 선택해 주세요.";
-      clearSelectedImage();
+      return "사진 한 장의 크기는 10MB 이하여야 합니다.";
+    }
+
+    return "";
+  }
+
+  function addSelectedFiles(files) {
+    const errorElement = document.getElementById("uploadError");
+    errorElement.textContent = "";
+
+    const existing = new Set(state.selectedFiles.map(fileKey));
+    let added = 0;
+
+    Array.from(files).forEach((file) => {
+      const error = validateImage(file);
+      if (error) {
+        errorElement.textContent = error;
+        return;
+      }
+
+      const key = fileKey(file);
+      if (existing.has(key)) {
+        return;
+      }
+
+      existing.add(key);
+      state.selectedFiles.push(file);
+      added += 1;
+    });
+
+    if (!added && !state.selectedFiles.length && !errorElement.textContent) {
+      errorElement.textContent = "추가할 이미지가 없습니다.";
+    }
+
+    renderSelectedImages();
+  }
+
+  function renderSelectedImages() {
+    const section = document.getElementById("previewSection");
+    const grid = document.getElementById("previewGrid");
+    const count = document.getElementById("previewCount");
+    const submitButton = document.getElementById("submitButton");
+
+    if (!section || !grid || !count || !submitButton) {
       return;
     }
 
-    state.selectedFile = file;
-    const previewUrl = URL.createObjectURL(file);
-    const preview = document.getElementById("imagePreview");
-    preview.onload = () => URL.revokeObjectURL(previewUrl);
-    preview.src = previewUrl;
+    revokePreviewUrls();
+    grid.replaceChildren();
 
-    document.querySelector(".upload-dropzone").classList.add("hidden");
-    document.getElementById("previewWrap").classList.remove("hidden");
-    document.getElementById("submitButton").disabled = false;
+    if (!state.selectedFiles.length) {
+      section.classList.add("hidden");
+      count.textContent = "0장 선택됨";
+      submitButton.disabled = true;
+      submitButton.textContent = "사진 제출하기";
+      return;
+    }
+
+    section.classList.remove("hidden");
+    count.textContent = `${state.selectedFiles.length}장 선택됨`;
+    submitButton.disabled = false;
+    submitButton.textContent = `${state.selectedFiles.length}장 제출하기`;
+
+    state.selectedFiles.forEach((file, index) => {
+      const item = document.createElement("div");
+      item.className = "preview-item";
+
+      const image = document.createElement("img");
+      const url = URL.createObjectURL(file);
+      previewUrls.push(url);
+      image.src = url;
+      image.alt = `제출 사진 ${index + 1}`;
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "preview-remove";
+      removeButton.setAttribute("aria-label", `${index + 1}번째 사진 삭제`);
+      removeButton.textContent = "×";
+      removeButton.addEventListener("click", () => {
+        state.selectedFiles.splice(index, 1);
+        renderSelectedImages();
+      });
+
+      item.append(image, removeButton);
+      grid.appendChild(item);
+    });
   }
 
-  async function submitImage() {
+  function makeClipboardFile(blob, index) {
+    const extension = blob.type === "image/jpeg" ? "jpg" : "png";
+    return new File(
+      [blob],
+      `clipboard-${Date.now()}-${index + 1}.${extension}`,
+      {
+        type: blob.type || "image/png",
+        lastModified: Date.now(),
+      },
+    );
+  }
+
+  async function pasteImagesFromClipboard() {
+    const errorElement = document.getElementById("uploadError");
+    errorElement.textContent = "";
+
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+      errorElement.textContent =
+        "이 브라우저에서는 클립보드 이미지 읽기를 지원하지 않습니다. 사진 파일 선택을 이용해 주세요.";
+      return;
+    }
+
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      const files = [];
+
+      for (const item of clipboardItems) {
+        const imageTypes = item.types.filter((type) => type.startsWith("image/"));
+        for (const type of imageTypes) {
+          const blob = await item.getType(type);
+          files.push(makeClipboardFile(blob, files.length));
+        }
+      }
+
+      if (!files.length) {
+        errorElement.textContent =
+          "클립보드에서 이미지를 찾지 못했습니다. 캡처 후 다시 시도해 주세요.";
+        return;
+      }
+
+      addSelectedFiles(files);
+    } catch (error) {
+      errorElement.textContent =
+        "클립보드 접근이 허용되지 않았습니다. 브라우저 권한을 허용하거나 사진 파일 선택을 이용해 주세요.";
+    }
+  }
+
+  function handlePasteEvent(event) {
+    if (!screens.upload.classList.contains("active")) {
+      return;
+    }
+
+    const files = Array.from(event.clipboardData?.files || []).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+
+    if (!files.length) {
+      return;
+    }
+
+    event.preventDefault();
+    addSelectedFiles(files);
+  }
+
+  async function submitImages() {
     const location = currentLocation();
     const button = document.getElementById("submitButton");
     const errorElement = document.getElementById("uploadError");
 
-    if (!state.student || !location || !state.selectedFile) {
-      errorElement.textContent = "제출할 사진을 선택해 주세요.";
+    if (!state.student || !location || !state.selectedFiles.length) {
+      errorElement.textContent = "제출할 사진을 한 장 이상 추가해 주세요.";
       return;
     }
 
@@ -255,17 +398,16 @@
           locationId: location.id,
           locationName: `${location.name} ${location.subtitle}`,
         },
-        state.selectedFile,
+        state.selectedFiles,
       );
 
-      clearSelectedImage();
+      clearSelectedImages();
       showScreen("success");
     } catch (error) {
       errorElement.textContent =
         error instanceof Error ? error.message : "제출 중 오류가 발생했습니다.";
       button.disabled = false;
-    } finally {
-      button.textContent = "사진 제출하기";
+      button.textContent = `${state.selectedFiles.length}장 제출하기`;
     }
   }
 
@@ -320,8 +462,7 @@
         locationId: state.galleryLocationId,
       });
 
-      status.textContent =
-        `${classId}반 · ${submissions.length}개의 장면`;
+      status.textContent = `${classId}반 · ${submissions.length}개의 장면`;
 
       if (!submissions.length) {
         const empty = document.createElement("div");
@@ -425,17 +566,33 @@
     });
 
     document.getElementById("imageInput").addEventListener("change", (event) => {
-      onImageSelected(event.target.files?.[0]);
+      addSelectedFiles(event.target.files || []);
+      event.target.value = "";
     });
 
-    document.getElementById("changeImageButton").addEventListener("click", () => {
+    document.getElementById("pasteImageButton").addEventListener(
+      "click",
+      pasteImagesFromClipboard,
+    );
+
+    document.getElementById("addMoreButton").addEventListener("click", () => {
       document.getElementById("imageInput").click();
     });
 
+    document.getElementById("clearImagesButton").addEventListener(
+      "click",
+      clearSelectedImages,
+    );
+
     document.getElementById("submitButton").addEventListener(
       "click",
-      submitImage,
+      submitImages,
     );
+
+    document.getElementById("submitMoreButton").addEventListener("click", () => {
+      renderUploadScreen();
+      showScreen("upload");
+    });
 
     document.getElementById("viewGalleryButton").addEventListener(
       "click",
@@ -462,6 +619,8 @@
     document.getElementById("homeButton").addEventListener("click", () => {
       showScreen(state.student ? "locations" : "profile");
     });
+
+    document.addEventListener("paste", handlePasteEvent);
   }
 
   function restoreForm() {
