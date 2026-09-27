@@ -26,6 +26,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check JavaScript syntax
+        run: |
+          node --check js/app.js
+          node --check js/api.js
+          node --check backend/src/worker.js
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
