@@ -123,8 +123,8 @@ async function submitProfile(event) {
     return;
   }
 
-  if (!/^\d{2,10}$/.test(studentNumber)) {
-    error.textContent = '학번은 숫자로 입력해주세요.';
+  if (!/^[0-9]{2,10}$/.test(studentNumber)) {
+    error.textContent = '학번은 숫자 2~10자리로 입력해주세요.';
     return;
   }
 
