@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>도시의 미래탐구 - 다문화 거리 탐방</title>
+  <?!= include('Styles'); ?>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <button id="homeButton" class="brand-button" type="button" aria-label="처음으로">
+        <span class="course-badge">도시의 미래탐구</span>
+        <span class="brand-title">
+          <strong>다문화 거리 탐방</strong>
+          <small>2학년 참여형 학습</small>
+        </span>
+      </button>
+      <span id="studentBadge" class="student-badge hidden"></span>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section id="profileScreen" class="screen active" aria-labelledby="profileTitle">
+      <div class="hero">
+        <p class="eyebrow">MULTICULTURAL STREET EXPLORER</p>
+        <h1 id="profileTitle">거리에서 찾는<br>다문화 경관</h1>
+        <p class="hero-copy">
+          다섯 지역을 네이버 지도 거리뷰로 탐방하고,
+          각 지역의 다문화적 특징이 가장 잘 드러나는 장면을 한 장씩 찾아 제출하세요.
+        </p>
+      </div>
+
+      <form id="profileForm" class="panel form-panel" novalidate>
+        <div class="fixed-grade">
+          <span>학년</span>
+          <strong>2학년</strong>
+        </div>
+
+        <label class="field">
+          <span>이름</span>
+          <input
+            id="studentNameInput"
+            type="text"
+            autocomplete="name"
+            maxlength="20"
+            placeholder="예: 김민수"
+            required
+          >
+        </label>
+
+        <label class="field">
+          <span>학번</span>
+          <input
+            id="studentNumberInput"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="10"
+            placeholder="예: 20317"
+            required
+          >
+        </label>
+
+        <p id="profileError" class="form-error" role="alert"></p>
+        <button class="primary-button" type="submit">탐방 시작하기</button>
+      </form>
+
+      <button id="teacherGalleryButton" class="teacher-entry-button" type="button">
+        선생님 전용 · 탐방 결과 보기
+      </button>
+    </section>
+
+    <section id="locationScreen" class="screen" aria-labelledby="locationTitle">
+      <div class="section-heading">
+        <button id="editProfileButton" class="text-button" type="button">← 학생정보 수정</button>
+        <p class="eyebrow">STEP 1</p>
+        <h2 id="locationTitle">탐방할 지역을<br>선택하세요</h2>
+        <p>
+          여러 지역을 탐방할 수 있습니다.
+          한 학생은 각 지역에 대표 사진 한 장씩 제출합니다.
+        </p>
+      </div>
+
+      <div id="locationGrid" class="location-grid"></div>
+    </section>
+
+    <section id="exploreScreen" class="screen" aria-labelledby="exploreTitle">
+      <div class="section-heading">
+        <button id="backLocationButton" class="text-button" type="button">← 지역 다시 선택</button>
+        <p class="eyebrow">STEP 2 · 거리뷰 탐방</p>
+        <h2 id="exploreTitle"></h2>
+        <p id="exploreDescription"></p>
+      </div>
+
+      <div class="panel instruction-panel">
+        <ol>
+          <li>아래 버튼으로 네이버 지도 앱을 엽니다.</li>
+          <li>지정된 시작점이 확대되어 열리면 <strong>거리뷰</strong>를 실행합니다.</li>
+          <li>주변을 이동하며 다문화 경관이 잘 나타나는 장면을 찾습니다.</li>
+          <li>이 지역을 대표하는 장면 <strong>1장</strong>을 캡처합니다.</li>
+        </ol>
+      </div>
+
+      <button id="openNaverButton" class="naver-button" type="button">
+        네이버 지도에서 탐방하기
+      </button>
+
+      <button id="goUploadButton" class="secondary-button" type="button">
+        캡처를 완료했어요
+      </button>
+    </section>
+
+    <section id="uploadScreen" class="screen" aria-labelledby="uploadTitle">
+      <div class="section-heading">
+        <button id="backExploreButton" class="text-button" type="button">← 탐방으로 돌아가기</button>
+        <p class="eyebrow">STEP 3 · 장면 제출</p>
+        <h2 id="uploadTitle">대표 장면<br>1장을 제출하세요</h2>
+        <p id="uploadLocationLabel"></p>
+      </div>
+
+      <div class="panel upload-panel">
+        <div class="upload-actions">
+          <label class="upload-box" for="imageInput">
+            <span class="upload-icon">＋</span>
+            <strong>사진 파일 선택</strong>
+            <small>캡처한 이미지 1장을 선택하세요.</small>
+          </label>
+
+          <button id="pasteImageButton" class="upload-box clipboard-box" type="button">
+            <span class="upload-icon">⌘</span>
+            <strong>클립보드 이미지 붙여넣기</strong>
+            <small>지원되는 기기에서는 캡처한 이미지를 바로 가져옵니다.</small>
+          </button>
+        </div>
+
+        <form id="uploadForm">
+          <input id="formStudentNumber" name="studentNumber" type="hidden">
+          <input id="formStudentName" name="studentName" type="hidden">
+          <input id="formLocationId" name="locationId" type="hidden">
+          <input id="imageInput" name="image" type="file" accept="image/*" class="hidden">
+        </form>
+
+        <div id="pasteHint" class="paste-hint" tabindex="0">
+          물리 키보드가 있다면 이 화면에서 Ctrl+V로도 붙여넣을 수 있습니다.
+        </div>
+
+        <div id="previewSection" class="preview-section hidden">
+          <img id="imagePreview" alt="제출 사진 미리보기">
+          <button id="clearPhotoButton" class="small-button" type="button">사진 다시 선택</button>
+        </div>
+
+        <div class="submission-summary">
+          <div>
+            <span>이름</span>
+            <strong id="summaryName"></strong>
+          </div>
+          <div>
+            <span>학번</span>
+            <strong id="summaryNumber"></strong>
+          </div>
+        </div>
+
+        <p id="uploadError" class="form-error" role="alert"></p>
+
+        <button id="submitPhotoButton" class="primary-button" type="button" disabled>
+          사진을 선택해주세요
+        </button>
+      </div>
+    </section>
+
+    <section id="successScreen" class="screen" aria-labelledby="successTitle">
+      <div class="success-card">
+        <div class="success-check">✓</div>
+        <p class="eyebrow">SUBMITTED</p>
+        <h2 id="successTitle">제출이 완료되었습니다</h2>
+        <p>다른 지역도 탐방해 지역별 대표 장면을 찾아보세요.</p>
+
+        <button id="exploreAnotherButton" class="primary-button" type="button">
+          다른 지역 탐방하기
+        </button>
+      </div>
+    </section>
+
+    <section id="galleryScreen" class="screen" aria-labelledby="galleryTitle">
+      <div class="section-heading">
+        <button id="galleryBackButton" class="text-button" type="button">← 처음 화면</button>
+        <p class="eyebrow">TEACHER GALLERY</p>
+        <h2 id="galleryTitle">다문화 거리<br>탐방 결과</h2>
+        <p>제출된 사진을 지역별로 확인하거나 클릭해 크게 볼 수 있습니다.</p>
+      </div>
+
+      <div id="galleryFilters" class="filter-row" role="group" aria-label="지역 필터"></div>
+      <div id="galleryStatus" class="gallery-status"></div>
+      <div id="galleryGrid" class="gallery-grid"></div>
+    </section>
+  </main>
+
+  <div
+    id="teacherPasswordModal"
+    class="password-modal hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="teacherPasswordTitle"
+  >
+    <div class="password-card">
+      <button id="teacherPasswordClose" class="password-close" type="button" aria-label="닫기">×</button>
+      <p class="eyebrow">TEACHER ONLY</p>
+      <h2 id="teacherPasswordTitle">선생님 전용</h2>
+      <p>탐방 결과를 확인하려면 비밀번호를 입력하세요.</p>
+
+      <input
+        id="teacherPasswordInput"
+        type="password"
+        inputmode="numeric"
+        autocomplete="off"
+        placeholder="비밀번호"
+      >
+
+      <p id="teacherPasswordError" class="form-error" role="alert"></p>
+
+      <button id="teacherPasswordSubmit" class="primary-button" type="button">
+        결과 보기
+      </button>
+    </div>
+  </div>
+
+  <div
+    id="lightbox"
+    class="lightbox hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-label="탐방 결과 크게 보기"
+  >
+    <button id="lightboxClose" class="lightbox-close" type="button" aria-label="닫기">×</button>
+    <button id="lightboxPrev" class="lightbox-nav" type="button" aria-label="이전 사진">‹</button>
+
+    <div class="lightbox-stage">
+      <div id="lightboxLoading" class="lightbox-loading">사진 불러오는 중...</div>
+      <img id="lightboxImage" class="hidden" alt="탐방 결과 확대 이미지">
+
+      <div class="lightbox-info">
+        <strong id="lightboxStudent"></strong>
+        <span id="lightboxLocation"></span>
+        <small id="lightboxCounter"></small>
+      </div>
+    </div>
+
+    <button id="lightboxNext" class="lightbox-nav" type="button" aria-label="다음 사진">›</button>
+  </div>
+
+  <footer>
+    <p>수업 활동을 위해 이름, 학번, 제출 사진을 저장합니다.</p>
+  </footer>
+
+  <?!= include('Script'); ?>
+</body>
+</html>
