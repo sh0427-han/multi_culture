@@ -202,6 +202,22 @@
     </section>
   </main>
 
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true" aria-label="탐방 결과 크게 보기">
+    <button id="lightboxClose" class="lightbox-close" type="button" aria-label="닫기">×</button>
+    <button id="lightboxPrev" class="lightbox-nav lightbox-prev" type="button" aria-label="이전 사진">‹</button>
+
+    <div class="lightbox-stage">
+      <img id="lightboxImage" alt="탐방 결과 확대 이미지">
+      <div class="lightbox-info">
+        <strong id="lightboxStudent"></strong>
+        <span id="lightboxLocation"></span>
+        <small id="lightboxCounter"></small>
+      </div>
+    </div>
+
+    <button id="lightboxNext" class="lightbox-nav lightbox-next" type="button" aria-label="다음 사진">›</button>
+  </div>
+
   <footer>
     <p>수업 활동을 위해 필요한 이름, 학번, 제출 사진만 저장하도록 설계된 학습지입니다.</p>
   </footer>
