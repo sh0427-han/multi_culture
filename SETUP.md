@@ -1,105 +1,132 @@
 # multi_culture 설정 가이드
 
-## 1. 현재 초안
+## 1. 현재 프론트엔드 기능
 
-현재 GitHub Pages만으로 아래 흐름을 테스트할 수 있습니다.
+GitHub Pages에서 아래 수업 흐름을 사용할 수 있습니다.
 
 1. 2학년 A~E반 선택
 2. 이름 / 학번 입력
 3. 5개 지역 중 1곳 선택
-4. NAVER 지도 앱 실행
-5. 학생이 거리뷰 탐방 후 화면 캡처
-6. 사진 선택 및 제출
-7. 반/지역별 Gallery 확인
+4. 해당 지역 대표 좌표를 NAVER 지도 앱에서 zoom 20으로 열기
+5. 학생이 거리뷰를 직접 실행해 주변 탐방
+6. 여러 장 캡처
+7. 사진 파일 선택 또는 클립보드 이미지 붙여넣기
+8. 여러 장 한 번에 제출
+9. 반/지역별 Gallery 확인
 
-기본 `storageMode`는 `demo`입니다.
-
-Demo 모드는 사진을 **현재 브라우저의 IndexedDB에만 저장**합니다.
-따라서 여러 학생의 태블릿에서 제출한 결과가 서로 합쳐지지는 않습니다.
-UI와 수업 흐름을 검증하기 위한 모드입니다.
+NAVER Maps API는 사용하지 않으며 API Key도 필요하지 않습니다.
 
 ---
 
-## 2. GitHub Pages
+## 2. NAVER 지도 앱 연결
 
-저장소의 Settings > Pages에서 GitHub Actions를 Source로 선택하면
-`.github/workflows/pages.yml`을 통해 정적 사이트가 배포됩니다.
+NAVER 지도 공식 URL Scheme의 `/map` 액션을 사용합니다.
 
-별도의 빌드 도구는 필요하지 않습니다.
-
----
-
-## 3. 교사가 수정할 파일
-
-대부분의 수업 설정은 `js/config.js`에 모아두었습니다.
+각 지역은 `js/locations.js`에 다음처럼 좌표와 zoom 값으로 관리됩니다.
 
 ```js
-window.MULTI_CULTURE_CONFIG = {
-  appName: "multi_culture",
-  grade: 2,
-  classes: ["A", "B", "C", "D", "E"],
-  storageMode: "demo",
-  backendUrl: "",
-  galleryNameMode: "masked",
-  maxImageBytes: 10 * 1024 * 1024,
-};
+{
+  id: "itaewon",
+  latitude: 37.5331501,
+  longitude: 126.9978424,
+  zoom: 20,
+}
 ```
 
-다른 교사가 저장소를 Clone/Fork해도 이 설정과 Backend 연결 정보만
-변경하도록 설계합니다.
-
----
-
-## 4. NAVER 지도
-
-NAVER Maps API를 사용하지 않습니다.
-
-학생이 탐방 버튼을 누르면 NAVER 지도 앱의 공식 URL Scheme을 사용합니다.
-
-Android 모바일 웹에서는 다음 구조를 사용합니다.
+모바일에서는 다음과 같은 형태로 열립니다.
 
 ```text
-intent://search?...#Intent;
-scheme=nmap;
-package=com.nhn.android.nmap;
-end
+nmap://map?lat=...&lng=...&zoom=20&appname=...
 ```
 
-iOS에서는 `nmap://search`를 사용합니다.
+Android 모바일 웹에서는 공식 Intent URL 형태를 사용합니다.
 
-따라서 NAVER Cloud Maps API Key는 필요하지 않습니다.
+NAVER URL Scheme에는 거리뷰를 자동으로 실행하는 공식 action이 없으므로,
+학생이 지도 앱이 열린 뒤 거리뷰 버튼을 한 번 눌러야 합니다.
 
 ---
 
-## 5. 실제 Google Drive 저장으로 전환할 때
+## 3. 클립보드 붙여넣기
 
-학생용 프론트엔드는 Google 계정에 직접 접근하지 않습니다.
+업로드 화면에는 두 방법을 모두 제공합니다.
 
-권장 구조:
+- 사진 파일 선택
+- 클립보드 이미지 붙여넣기
+
+GitHub Pages는 HTTPS이므로 지원 브라우저에서는
+`navigator.clipboard.read()`로 이미지 데이터를 읽을 수 있습니다.
+
+또한 물리 키보드가 있는 환경에서는 업로드 화면에서 Ctrl+V paste event도 처리합니다.
+
+주의:
+
+- 브라우저가 클립보드 읽기 권한을 요청할 수 있습니다.
+- 태블릿의 캡처 프로그램이 캡처 이미지를 시스템 클립보드에 넣지 않는 경우가 있습니다.
+- 이 경우 기존 사진 파일 선택 기능을 사용하면 됩니다.
+
+---
+
+## 4. Demo 모드
+
+초기 `js/config.js`:
+
+```js
+storageMode: "demo",
+backendUrl: "",
+```
+
+Demo 모드에서는 사진을 현재 브라우저의 IndexedDB에 저장합니다.
+
+따라서 다른 학생의 태블릿이나 교사 PC와 사진이 공유되지는 않습니다.
+UI와 전체 수업 흐름 확인용입니다.
+
+학생은 여러 장을 한 번에 제출할 수 있고,
+제출 완료 뒤에도 `사진 더 제출하기`로 추가 제출할 수 있습니다.
+
+---
+
+## 5. 실제 Google Drive 공유 저장소
+
+`backend/`에 Cloudflare Worker 기반 Backend 예제가 포함되어 있습니다.
+
+구조:
 
 ```text
 GitHub Pages
-    |
-    | HTTPS
-    v
-Backend API
-    |
-    +-- 교사 Google OAuth
-    |
-    +-- Google Drive
-    |
-    +-- 제출 metadata 저장소
+      |
+      v
+Cloudflare Worker
+   |          |
+   v          v
+Google Drive  D1 metadata
 ```
 
-이렇게 해야 학생 브라우저에 교사의 OAuth token이나 비밀키가 노출되지 않습니다.
+이미지는 교사의 개인 Google Drive에 저장하고,
+학생 이름/학번/반/지역/Drive file ID 같은 metadata만 D1에 저장합니다.
 
-### 프론트엔드가 기대하는 API
+Drive 이미지 파일을 전체 공개로 변경하지 않고,
+Worker의 `/images/:fileId`가 OAuth 인증 후 이미지를 Gallery에 전달합니다.
 
-#### POST /submissions
+자세한 설정은 `backend/README.md`를 참고하세요.
 
-Content-Type: multipart/form-data
+---
 
-필드:
+## 6. Google Drive Backend 활성화 후
+
+`js/config.js`를:
+
+```js
+storageMode: "api",
+backendUrl: "https://YOUR-WORKER.workers.dev",
+```
+
+로 변경합니다.
+
+프론트엔드가 기대하는 API는 다음과 같습니다.
+
+### POST /submissions
+
+`multipart/form-data`
 
 - grade
 - classId
@@ -107,20 +134,9 @@ Content-Type: multipart/form-data
 - studentNumber
 - locationId
 - locationName
-- image
+- images: 여러 개 허용
 
-응답 예:
-
-```json
-{
-  "id": "submission-id",
-  "submitted_at": "2026-09-27T12:00:00+09:00"
-}
-```
-
-#### GET /submissions
-
-Query:
+### GET /submissions
 
 ```text
 ?class_id=A
@@ -129,62 +145,37 @@ Query:
 
 `location_id`는 생략할 수 있습니다.
 
-응답:
-
-```json
-{
-  "submissions": [
-    {
-      "id": "submission-id",
-      "classId": "A",
-      "studentName": "김민수",
-      "studentNumber": "20317",
-      "locationId": "itaewon",
-      "image_url": "https://...",
-      "submittedAt": "2026-09-27T12:00:00+09:00"
-    }
-  ]
-}
-```
-
-### 실제 API 활성화
-
-Backend가 완성되면 `js/config.js`를 다음처럼 변경합니다.
-
-```js
-storageMode: "api",
-backendUrl: "https://YOUR-BACKEND.example.com",
-```
-
 ---
 
-## 6. Google Drive 폴더 권장 구조
+## 7. Drive 폴더 구조
+
+Backend에서 자동으로 생성합니다.
 
 ```text
 multi_culture/
-├── A/
+├── A반/
 │   ├── ansan/
 │   ├── itaewon/
 │   ├── seorae/
 │   ├── daerim/
 │   └── gwanghui/
-├── B/
-├── C/
-├── D/
-└── E/
+├── B반/
+├── C반/
+├── D반/
+└── E반/
 ```
 
-파일명에는 이름/학번을 직접 넣지 않고 UUID를 권장합니다.
-
-학생 정보와 Drive file ID의 관계는 별도 metadata에 저장합니다.
+파일명에는 학생 개인정보를 넣지 않고 UUID를 사용합니다.
 
 ---
 
-## 7. 다음 구현 단계
+## 8. 다른 교사가 사용할 때
 
-1. 모바일 UI 실기기 확인
-2. NAVER 지도 앱 Deep Link 확인
-3. 교사 Google OAuth Backend 구현
-4. Google Drive 실제 업로드
-5. 전체 태블릿의 제출물이 합쳐지는 Gallery 연결
-6. 필요 시 교사용 관리 화면 추가
+1. Repository Clone 또는 Fork
+2. GitHub Pages 활성화
+3. Cloudflare Worker/D1 생성
+4. 자신의 Google Cloud OAuth Client 생성
+5. `backend/README.md` 절차로 자기 Gmail Drive 연결
+6. `js/config.js`의 Backend URL 변경
+
+프론트엔드 소스에 특정 교사의 Gmail, OAuth token, Client Secret을 저장하지 않습니다.
