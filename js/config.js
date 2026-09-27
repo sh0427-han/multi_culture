@@ -9,7 +9,7 @@ window.MULTI_CULTURE_CONFIG = {
   backendUrl: "",
 
   // 갤러리 학생명 표기: "masked" | "full"
-  galleryNameMode: "masked",
+  galleryNameMode: "full",
 
   // 사진 1장당 업로드 제한
   maxImageBytes: 10 * 1024 * 1024,
