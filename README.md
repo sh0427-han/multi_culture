@@ -468,3 +468,63 @@ Google Drive + Google Sheet
 ```
 
 입니다.
+
+
+---
+
+## 자주 발생하는 오류
+
+### `SyntaxError: Unexpected token '<'` / `Gallery.gs`
+
+`.gs` 파일 안에 `<script>`, `</script>` 또는 Markdown 코드블록 표시가 들어간 경우 발생할 수 있습니다.
+
+Apps Script에서는 다음 파일을 **스크립트 파일**로 생성합니다.
+
+```text
+Config
+Code
+Storage
+Gallery
+```
+
+그리고 GitHub의 각 `.gs` 파일 **내용만** 붙여넣습니다.
+
+`Storage.gs` 첫 줄은 다음과 같아야 합니다.
+
+```js
+function setupStorage() {
+```
+
+프로젝트의 어느 `.gs` 파일에라도 문법 오류가 있으면 `setupStorage`가 함수 선택 목록에 표시되지 않을 수 있습니다.
+
+### 학번이 숫자인데 `학번은 숫자로 입력해주세요`
+
+최신 `Storage.gs`와 `Script.html`을 사용하세요.
+
+현재 버전은 학번을 숫자 2~10자리로 검사하며, 서버에서는 앞뒤 공백과 전각 숫자도 정규화합니다.
+
+### `runner[method] is not a function`
+
+이전 `Script.html`의 동적 `google.script.run` 호출 방식에서 발생한 오류입니다.
+
+최신 `Script.html`은 각 Apps Script 서버 함수를 명시적으로 호출하도록 수정되어 있습니다.
+
+이 오류가 보이면 GitHub의 최신 `Script.html`로 교체하고 웹앱을 **새 버전으로 재배포**하세요.
+
+---
+
+## 현재 최종 파일
+
+```text
+README.md
+apps-script/
+├── Config.gs
+├── Code.gs
+├── Storage.gs
+├── Gallery.gs
+├── Index.html
+├── Styles.html
+└── Script.html
+```
+
+기존 GitHub Pages 및 Cloudflare Backend 파일은 사용하지 않습니다.
