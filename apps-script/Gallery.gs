@@ -1,5 +1,38 @@
-function verifyTeacherPassword(password) {
-  return String(password || '') === CONFIG.TEACHER_PASSWORD;
+function authenticateTeacher(password) {
+  if (String(password || '') !== CONFIG.TEACHER_PASSWORD) {
+    throw new Error('비밀번호가 올바르지 않습니다.');
+  }
+
+  const token = Utilities.getUuid();
+
+  CacheService
+    .getScriptCache()
+    .put(
+      'teacher:' + token,
+      '1',
+      CONFIG.TEACHER_SESSION_SECONDS
+    );
+
+  return {
+    token: token,
+    expiresInSeconds: CONFIG.TEACHER_SESSION_SECONDS,
+  };
+}
+
+function requireTeacherToken_(token) {
+  if (!token) {
+    throw new Error('교사 인증이 필요합니다.');
+  }
+
+  const value = CacheService
+    .getScriptCache()
+    .get('teacher:' + token);
+
+  if (value !== '1') {
+    throw new Error(
+      '교사 인증 시간이 만료되었습니다. 다시 로그인해주세요.'
+    );
+  }
 }
 
 function getStudentSubmissionStatus(studentNumber) {
@@ -32,7 +65,9 @@ function getStudentSubmissionStatus(studentNumber) {
   return Array.from(submitted);
 }
 
-function getGallery(locationId) {
+function getGallery(teacherToken, locationId) {
+  requireTeacherToken_(teacherToken);
+
   locationId = String(locationId || '');
 
   if (locationId && !CONFIG.LOCATIONS[locationId]) {
@@ -55,6 +90,8 @@ function getGallery(locationId) {
     )
     .getValues();
 
+  const locationOrder = Object.keys(CONFIG.LOCATIONS);
+
   return values
     .filter(function(row) {
       return !locationId || String(row[3]) === locationId;
@@ -70,12 +107,28 @@ function getGallery(locationId) {
       };
     })
     .sort(function(a, b) {
+      const locationDiff =
+        locationOrder.indexOf(a.locationId) -
+        locationOrder.indexOf(b.locationId);
+
+      if (locationDiff !== 0) {
+        return locationDiff;
+      }
+
       return Number(a.studentNumber) - Number(b.studentNumber);
     });
 }
 
-function getImageData(recordId, useThumbnail) {
-  const fileId = getFileIdFromRecord_(String(recordId || ''));
+function getImageData(
+  teacherToken,
+  recordId,
+  useThumbnail
+) {
+  requireTeacherToken_(teacherToken);
+
+  const fileId = getFileIdFromRecord_(
+    String(recordId || '')
+  );
 
   if (!fileId) {
     throw new Error('사진을 찾을 수 없습니다.');
@@ -89,7 +142,7 @@ function getImageData(recordId, useThumbnail) {
   }
 
   return {
-    recordId,
+    recordId: String(recordId),
     dataUrl:
       'data:' +
       blob.getContentType() +
