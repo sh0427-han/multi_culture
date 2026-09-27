@@ -1,89 +1,79 @@
 function setupStorage() {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  const props = PropertiesService.getScriptProperties();
 
-  try {
-    const props = PropertiesService.getScriptProperties();
+  const courseFolder = getOrCreateRootFolder_(
+    CONFIG.COURSE_FOLDER_NAME
+  );
 
-    // 1) 내 드라이브 / 도시의미래탐구
-    const courseFolder = getOrCreateRootFolder_(CONFIG.COURSE_FOLDER_NAME);
+  const activityFolder = getOrCreateChildFolder_(
+    courseFolder,
+    CONFIG.ACTIVITY_FOLDER_NAME
+  );
 
-    // 2) 내 드라이브 / 도시의미래탐구 / 다문화거리탐방
-    const activityFolder = getOrCreateChildFolder_(
-      courseFolder,
-      CONFIG.ACTIVITY_FOLDER_NAME
+  props.setProperties({
+    COURSE_FOLDER_ID: courseFolder.getId(),
+    ACTIVITY_FOLDER_ID: activityFolder.getId(),
+  });
+
+  Object.keys(CONFIG.LOCATIONS).forEach(function(locationId) {
+    const location = CONFIG.LOCATIONS[locationId];
+
+    const folder = getOrCreateChildFolder_(
+      activityFolder,
+      location.folderName
     );
 
-    props.setProperties({
-      COURSE_FOLDER_ID: courseFolder.getId(),
-      ACTIVITY_FOLDER_ID: activityFolder.getId(),
-    });
+    props.setProperty(
+      getLocationFolderPropertyKey_(locationId),
+      folder.getId()
+    );
+  });
 
-    // 3) 지역별 폴더
-    Object.keys(CONFIG.LOCATIONS).forEach(function(locationId) {
-      const location = CONFIG.LOCATIONS[locationId];
-      const folder = getOrCreateChildFolder_(
-        activityFolder,
-        location.folderName
-      );
+  let spreadsheet = null;
+  const savedSpreadsheetId = props.getProperty('SPREADSHEET_ID');
 
-      props.setProperty(
-        getLocationFolderPropertyKey_(locationId),
-        folder.getId()
-      );
-    });
+  if (savedSpreadsheetId) {
+    try {
+      const savedFile = DriveApp.getFileById(savedSpreadsheetId);
 
-    // 4) 제출현황 Sheet
-    let spreadsheet = null;
-    const savedSpreadsheetId = props.getProperty('SPREADSHEET_ID');
-
-    if (savedSpreadsheetId) {
-      try {
-        const savedFile = DriveApp.getFileById(savedSpreadsheetId);
-
-        if (!savedFile.isTrashed()) {
-          spreadsheet = SpreadsheetApp.openById(savedSpreadsheetId);
-        }
-      } catch (error) {
-        spreadsheet = null;
+      if (!savedFile.isTrashed()) {
+        spreadsheet = SpreadsheetApp.openById(savedSpreadsheetId);
       }
+    } catch (error) {
+      spreadsheet = null;
     }
+  }
 
-    if (!spreadsheet) {
-      spreadsheet = SpreadsheetApp.create(CONFIG.SPREADSHEET_NAME);
-      props.setProperty('SPREADSHEET_ID', spreadsheet.getId());
-    }
+  if (!spreadsheet) {
+    spreadsheet = SpreadsheetApp.create(CONFIG.SPREADSHEET_NAME);
+    props.setProperty('SPREADSHEET_ID', spreadsheet.getId());
+  }
 
-    const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
-    spreadsheetFile.setName(CONFIG.SPREADSHEET_NAME);
-    spreadsheetFile.moveTo(activityFolder);
+  const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
+  spreadsheetFile.setName(CONFIG.SPREADSHEET_NAME);
+  spreadsheetFile.moveTo(activityFolder);
 
-    let sheet = spreadsheet.getSheetByName('submissions');
+  let sheet = spreadsheet.getSheetByName('submissions');
 
-    if (!sheet) {
-      sheet = spreadsheet.insertSheet('submissions');
-    }
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet('submissions');
+  }
 
-    if (sheet.getLastRow() === 0) {
-      sheet
-        .getRange(1, 1, 1, SHEET_HEADERS.length)
-        .setValues([SHEET_HEADERS]);
-    }
+  if (sheet.getLastRow() === 0) {
+    sheet
+      .getRange(1, 1, 1, SHEET_HEADERS.length)
+      .setValues([SHEET_HEADERS]);
 
     sheet.setFrozenRows(1);
-
-    // 학번은 문자열로 유지
     sheet.getRange('B:B').setNumberFormat('@');
-
-    return {
-      success: true,
-      courseFolderUrl: courseFolder.getUrl(),
-      activityFolderUrl: activityFolder.getUrl(),
-      spreadsheetUrl: spreadsheet.getUrl(),
-    };
-  } finally {
-    lock.releaseLock();
   }
+
+  return {
+    success: true,
+    courseFolderUrl: courseFolder.getUrl(),
+    activityFolderUrl: activityFolder.getUrl(),
+    spreadsheetUrl: spreadsheet.getUrl(),
+  };
 }
 
 function getOrCreateRootFolder_(folderName) {
@@ -117,7 +107,7 @@ function getLocationFolder_(locationId) {
 
   if (!folderId) {
     throw new Error(
-      '지역 저장 폴더가 설정되지 않았습니다. setupStorage()를 다시 실행하세요.'
+      '지역 저장 폴더가 설정되지 않았습니다. setupStorage()를 실행하세요.'
     );
   }
 
@@ -131,7 +121,7 @@ function getSubmissionSheet_() {
 
   if (!spreadsheetId) {
     throw new Error(
-      '제출현황 Sheet가 설정되지 않았습니다. setupStorage()를 다시 실행하세요.'
+      '제출현황 Sheet가 설정되지 않았습니다. setupStorage()를 실행하세요.'
     );
   }
 
@@ -150,13 +140,14 @@ function submitPhoto(formObject) {
     throw new Error('사진이 전달되지 않았습니다.');
   }
 
-  const metadata = {
-    studentNumber: String(formObject.studentNumber || ''),
-    studentName: String(formObject.studentName || ''),
-    locationId: String(formObject.locationId || ''),
-  };
-
-  return saveSubmission_(metadata, formObject.image);
+  return saveSubmission_(
+    {
+      studentNumber: String(formObject.studentNumber || ''),
+      studentName: String(formObject.studentName || ''),
+      locationId: String(formObject.locationId || ''),
+    },
+    formObject.image
+  );
 }
 
 function submitClipboardPhoto(payload) {
@@ -166,29 +157,43 @@ function submitClipboardPhoto(payload) {
 
   const mimeType = payload.mimeType || 'image/png';
   const bytes = Utilities.base64Decode(payload.base64);
+
   const blob = Utilities.newBlob(
     bytes,
     mimeType,
-    payload.fileName || Utilities.getUuid() + getExtension_(mimeType)
+    payload.fileName ||
+      Utilities.getUuid() + getExtension_(mimeType)
   );
 
-  const metadata = {
-    studentNumber: String(payload.studentNumber || ''),
-    studentName: String(payload.studentName || ''),
-    locationId: String(payload.locationId || ''),
-  };
-
-  return saveSubmission_(metadata, blob);
+  return saveSubmission_(
+    {
+      studentNumber: String(payload.studentNumber || ''),
+      studentName: String(payload.studentName || ''),
+      locationId: String(payload.locationId || ''),
+    },
+    blob
+  );
 }
 
 function saveSubmission_(metadata, imageBlob) {
   validateMetadata_(metadata);
   validateImageBlob_(imageBlob);
 
+  const locationFolder = getLocationFolder_(metadata.locationId);
+  const mimeType = imageBlob.getContentType();
+
+  imageBlob.setName(
+    Utilities.getUuid() + getExtension_(mimeType)
+  );
+
+  // Drive 업로드는 Sheet lock 밖에서 처리해 동시 제출 대기시간을 줄입니다.
+  const newFile = locationFolder.createFile(imageBlob);
+
   const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
 
   try {
+    lock.waitLock(30000);
+
     const sheet = getSubmissionSheet_();
     const existing = findSubmission_(
       sheet,
@@ -196,14 +201,6 @@ function saveSubmission_(metadata, imageBlob) {
       metadata.locationId
     );
 
-    const locationFolder = getLocationFolder_(metadata.locationId);
-    const mimeType = imageBlob.getContentType();
-
-    imageBlob.setName(
-      Utilities.getUuid() + getExtension_(mimeType)
-    );
-
-    const newFile = locationFolder.createFile(imageBlob);
     const now = new Date();
     const location = CONFIG.LOCATIONS[metadata.locationId];
 
@@ -262,12 +259,25 @@ function saveSubmission_(metadata, imageBlob) {
 
     return {
       success: true,
-      recordId,
+      recordId: recordId,
       locationId: metadata.locationId,
       replaced: false,
     };
+  } catch (error) {
+    // Sheet 기록이 실패한 경우 고아 파일을 남기지 않습니다.
+    try {
+      newFile.setTrashed(true);
+    } catch (cleanupError) {
+      console.log('업로드 롤백 실패:', cleanupError);
+    }
+
+    throw error;
   } finally {
-    lock.releaseLock();
+    try {
+      lock.releaseLock();
+    } catch (error) {
+      // lock 획득 전 오류는 무시
+    }
   }
 }
 
@@ -311,7 +321,7 @@ function validateMetadata_(metadata) {
     throw new Error('올바르지 않은 탐방 지역입니다.');
   }
 
-  if (!/^\d{2,10}$/.test(metadata.studentNumber)) {
+  if (!/^\\d{2,10}$/.test(metadata.studentNumber)) {
     throw new Error('학번은 숫자로 입력해주세요.');
   }
 
@@ -353,4 +363,3 @@ function getExtension_(mimeType) {
 
   return map[mimeType] || '.img';
 }
-
