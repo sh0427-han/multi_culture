@@ -63,25 +63,13 @@
     }
 
     badge.textContent =
-      `${config.grade}학년 ${state.student.classId}반 · ` +
+      `${config.grade}학년 · ` +
       `${state.student.studentNumber} ${state.student.studentName}`;
     badge.classList.remove("hidden");
   }
 
   function populateClassOptions() {
-    const selects = [
-      document.getElementById("classSelect"),
-      document.getElementById("galleryClassSelect"),
-    ];
-
-    selects.forEach((select) => {
-      config.classes.forEach((classId) => {
-        const option = document.createElement("option");
-        option.value = classId;
-        option.textContent = `${classId}반`;
-        select.appendChild(option);
-      });
-    });
+    // 단일 반 운영: 화면에서는 반 선택을 노출하지 않습니다.
   }
 
   function renderLocations() {
@@ -189,8 +177,6 @@
 
     document.getElementById("uploadLocationLabel").textContent =
       `${location.name} ${location.subtitle}`;
-    document.getElementById("summaryClass").textContent =
-      `${state.student.classId}반`;
     document.getElementById("summaryName").textContent =
       state.student.studentName;
     document.getElementById("summaryNumber").textContent =
@@ -486,7 +472,7 @@
   }
 
   async function loadGallery() {
-    const classId = document.getElementById("galleryClassSelect").value;
+    const classId = config.classes[0];
     const grid = document.getElementById("galleryGrid");
     const status = document.getElementById("galleryStatus");
 
@@ -500,7 +486,7 @@
       });
 
       galleryItems = submissions;
-      status.textContent = `${classId}반 · ${submissions.length}개의 장면`;
+      status.textContent = `${submissions.length}개의 장면`;
 
       if (!submissions.length) {
         const empty = document.createElement("div");
@@ -558,8 +544,6 @@
   }
 
   function openGallery() {
-    const classSelect = document.getElementById("galleryClassSelect");
-    classSelect.value = state.student?.classId || config.classes[0];
     state.galleryLocationId = "";
     renderGalleryFilters();
     showScreen("gallery");
@@ -567,16 +551,12 @@
   }
 
   function validateProfile() {
-    const classId = document.getElementById("classSelect").value;
+    const classId = config.classes[0];
     const studentName = document.getElementById("studentName").value.trim();
     const studentNumber =
       document.getElementById("studentNumber").value.trim();
     const error = document.getElementById("profileError");
 
-    if (!classId) {
-      error.textContent = "반을 선택해 주세요.";
-      return null;
-    }
     if (studentName.length < 2) {
       error.textContent = "이름을 정확히 입력해 주세요.";
       return null;
@@ -649,17 +629,16 @@
       openGallery,
     );
 
-    document.getElementById("galleryClassSelect").addEventListener(
-      "change",
-      loadGallery,
-    );
-
     document.querySelectorAll("[data-action='back-profile']").forEach((button) => {
       button.addEventListener("click", () => showScreen("profile"));
     });
 
     document.querySelectorAll("[data-action='back-locations']").forEach((button) => {
       button.addEventListener("click", () => showScreen("locations"));
+    });
+
+    document.getElementById("galleryBackButton").addEventListener("click", () => {
+      showScreen(state.student ? "locations" : "profile");
     });
 
     document.querySelectorAll("[data-action='back-explore']").forEach((button) => {
@@ -669,6 +648,55 @@
     document.getElementById("homeButton").addEventListener("click", () => {
       showScreen(state.student ? "locations" : "profile");
     });
+
+    document.getElementById("teacherGalleryButton").addEventListener("click", () => {
+      const modal = document.getElementById("teacherPasswordModal");
+      document.getElementById("teacherPasswordInput").value = "";
+      document.getElementById("teacherPasswordError").textContent = "";
+      modal.classList.remove("hidden");
+      document.getElementById("teacherPasswordInput").focus();
+    });
+
+    const closeTeacherModal = () => {
+      document.getElementById("teacherPasswordModal").classList.add("hidden");
+      document.getElementById("teacherPasswordError").textContent = "";
+    };
+
+    document.getElementById("teacherPasswordClose").addEventListener(
+      "click",
+      closeTeacherModal,
+    );
+
+    document.getElementById("teacherPasswordSubmit").addEventListener("click", () => {
+      const password = document.getElementById("teacherPasswordInput").value;
+      const error = document.getElementById("teacherPasswordError");
+
+      if (password !== config.teacherPassword) {
+        error.textContent = "비밀번호가 올바르지 않습니다.";
+        return;
+      }
+
+      closeTeacherModal();
+      openGallery();
+    });
+
+    document.getElementById("teacherPasswordInput").addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Enter") {
+          document.getElementById("teacherPasswordSubmit").click();
+        }
+      },
+    );
+
+    document.getElementById("teacherPasswordModal").addEventListener(
+      "click",
+      (event) => {
+        if (event.target.id === "teacherPasswordModal") {
+          closeTeacherModal();
+        }
+      },
+    );
 
     document.addEventListener("paste", handlePasteEvent);
 
@@ -731,7 +759,6 @@
       return;
     }
 
-    document.getElementById("classSelect").value = state.student.classId;
     document.getElementById("studentName").value = state.student.studentName;
     document.getElementById("studentNumber").value = state.student.studentNumber;
   }
