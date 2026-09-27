@@ -11,6 +11,6 @@ window.MULTI_CULTURE_CONFIG = {
   // 갤러리 학생명 표기: "masked" | "full"
   galleryNameMode: "masked",
 
-  // 사진 업로드 제한
+  // 사진 1장당 업로드 제한
   maxImageBytes: 10 * 1024 * 1024,
 };
