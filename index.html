@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>다문화 거리 탐방</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <button id="homeButton" class="brand-button" type="button" aria-label="처음으로">
+        <span class="brand-mark">MC</span>
+        <span>
+          <strong>다문화 거리 탐방</strong>
+          <small>2학년 참여형 학습</small>
+        </span>
+      </button>
+      <span id="studentBadge" class="student-badge hidden"></span>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section id="profileScreen" class="screen active" aria-labelledby="profileTitle">
+      <div class="hero">
+        <p class="eyebrow">MULTICULTURAL STREET EXPLORER</p>
+        <h1 id="profileTitle">거리에서 찾는<br>다문화 경관</h1>
+        <p class="hero-copy">
+          다섯 지역 중 한 곳을 선택하고 네이버 지도 거리뷰를 탐방하세요.
+          다문화적 특징이 잘 드러나는 장면을 찾아 캡처한 뒤 제출합니다.
+        </p>
+      </div>
+
+      <form id="profileForm" class="panel form-panel" novalidate>
+        <div class="fixed-grade">
+          <span>학년</span>
+          <strong>2학년</strong>
+        </div>
+
+        <label class="field">
+          <span>반</span>
+          <select id="classSelect" required>
+            <option value="">반을 선택하세요</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>이름</span>
+          <input
+            id="studentName"
+            type="text"
+            autocomplete="name"
+            maxlength="20"
+            placeholder="예: 김민수"
+            required
+          >
+        </label>
+
+        <label class="field">
+          <span>학번</span>
+          <input
+            id="studentNumber"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="10"
+            placeholder="예: 20317"
+            required
+          >
+        </label>
+
+        <p id="profileError" class="form-error" role="alert"></p>
+        <button class="primary-button" type="submit">탐방 시작하기</button>
+      </form>
+    </section>
+
+    <section id="locationScreen" class="screen" aria-labelledby="locationTitle">
+      <div class="section-heading">
+        <button class="text-button" data-action="back-profile" type="button">← 정보 수정</button>
+        <p class="eyebrow">STEP 1</p>
+        <h2 id="locationTitle">탐방할 지역을<br>하나 선택하세요</h2>
+        <p>각 지역의 대표 지점에서 시작해 주변 거리를 자유롭게 살펴보세요.</p>
+      </div>
+      <div id="locationGrid" class="location-grid"></div>
+    </section>
+
+    <section id="exploreScreen" class="screen" aria-labelledby="exploreTitle">
+      <div class="section-heading">
+        <button class="text-button" data-action="back-locations" type="button">← 지역 다시 선택</button>
+        <p class="eyebrow">STEP 2 · 거리뷰 탐방</p>
+        <h2 id="exploreTitle"></h2>
+        <p id="exploreDescription"></p>
+      </div>
+
+      <div class="panel instruction-panel">
+        <ol>
+          <li>아래 버튼으로 네이버 지도 앱을 엽니다.</li>
+          <li>지도 앱에서 <strong>거리뷰</strong>를 실행해 주변을 이동합니다.</li>
+          <li>다문화 경관이 잘 나타나는 장면을 태블릿으로 캡처합니다.</li>
+          <li>브라우저의 이 학습지로 돌아와 사진을 제출합니다.</li>
+        </ol>
+      </div>
+
+      <button id="openNaverButton" class="naver-button" type="button">
+        네이버 지도에서 탐방하기
+      </button>
+      <button id="goUploadButton" class="secondary-button" type="button">
+        캡처를 완료했어요
+      </button>
+
+      <p class="helper-text">
+        네이버 지도 앱이 설치되어 있지 않은 경우 브라우저 지도 또는 앱 설치 화면으로
+        이동할 수 있습니다.
+      </p>
+    </section>
+
+    <section id="uploadScreen" class="screen" aria-labelledby="uploadTitle">
+      <div class="section-heading">
+        <button class="text-button" data-action="back-explore" type="button">← 탐방으로 돌아가기</button>
+        <p class="eyebrow">STEP 3 · 장면 제출</p>
+        <h2 id="uploadTitle">캡처한 장면을<br>제출하세요</h2>
+        <p id="uploadLocationLabel"></p>
+      </div>
+
+      <div class="panel upload-panel">
+        <label class="upload-dropzone" for="imageInput">
+          <input id="imageInput" type="file" accept="image/*">
+          <span class="upload-icon">＋</span>
+          <strong>사진 선택</strong>
+          <small>태블릿 갤러리에서 캡처 이미지를 선택하세요.</small>
+        </label>
+
+        <div id="previewWrap" class="preview-wrap hidden">
+          <img id="imagePreview" alt="제출 사진 미리보기">
+          <button id="changeImageButton" class="small-button" type="button">사진 다시 선택</button>
+        </div>
+
+        <div class="submission-summary">
+          <div><span>반</span><strong id="summaryClass"></strong></div>
+          <div><span>이름</span><strong id="summaryName"></strong></div>
+          <div><span>학번</span><strong id="summaryNumber"></strong></div>
+        </div>
+
+        <p id="uploadError" class="form-error" role="alert"></p>
+        <button id="submitButton" class="primary-button" type="button" disabled>
+          사진 제출하기
+        </button>
+      </div>
+    </section>
+
+    <section id="successScreen" class="screen" aria-labelledby="successTitle">
+      <div class="success-card">
+        <div class="success-check">✓</div>
+        <p class="eyebrow">SUBMITTED</p>
+        <h2 id="successTitle">제출이 완료되었습니다</h2>
+        <p>친구들이 선택한 장면과 비교해 보세요.</p>
+        <button id="viewGalleryButton" class="primary-button" type="button">
+          우리 수업 결과 보기
+        </button>
+      </div>
+    </section>
+
+    <section id="galleryScreen" class="screen" aria-labelledby="galleryTitle">
+      <div class="section-heading gallery-heading">
+        <button class="text-button" data-action="back-locations" type="button">← 탐방 화면</button>
+        <p class="eyebrow">CLASS GALLERY</p>
+        <h2 id="galleryTitle">다문화 거리<br>탐방 결과</h2>
+      </div>
+
+      <div class="gallery-controls">
+        <label>
+          <span>반</span>
+          <select id="galleryClassSelect"></select>
+        </label>
+        <div id="galleryFilters" class="filter-row" role="group" aria-label="지역 필터"></div>
+      </div>
+
+      <div id="galleryStatus" class="gallery-status"></div>
+      <div id="galleryGrid" class="gallery-grid"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>수업 활동을 위해 필요한 이름, 학번, 제출 사진만 저장하도록 설계된 학습지입니다.</p>
+  </footer>
+
+  <script src="./js/config.js"></script>
+  <script src="./js/locations.js"></script>
+  <script src="./js/api.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
