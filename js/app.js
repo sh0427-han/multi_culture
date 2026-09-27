@@ -232,30 +232,18 @@
     const errorElement = document.getElementById("uploadError");
     errorElement.textContent = "";
 
-    const existing = new Set(state.selectedFiles.map(fileKey));
-    let added = 0;
-
-    Array.from(files).forEach((file) => {
-      const error = validateImage(file);
-      if (error) {
-        errorElement.textContent = error;
-        return;
-      }
-
-      const key = fileKey(file);
-      if (existing.has(key)) {
-        return;
-      }
-
-      existing.add(key);
-      state.selectedFiles.push(file);
-      added += 1;
-    });
-
-    if (!added && !state.selectedFiles.length && !errorElement.textContent) {
-      errorElement.textContent = "추가할 이미지가 없습니다.";
+    const file = Array.from(files)[0];
+    if (!file) {
+      return;
     }
 
+    const error = validateImage(file);
+    if (error) {
+      errorElement.textContent = error;
+      return;
+    }
+
+    state.selectedFiles = [file];
     renderSelectedImages();
   }
 
@@ -281,9 +269,9 @@
     }
 
     section.classList.remove("hidden");
-    count.textContent = `${state.selectedFiles.length}장 선택됨`;
+    count.textContent = "사진 미리보기";
     submitButton.disabled = false;
-    submitButton.textContent = `${state.selectedFiles.length}장 제출하기`;
+    submitButton.textContent = "이 사진 제출하기";
 
     state.selectedFiles.forEach((file, index) => {
       const item = document.createElement("div");
@@ -380,7 +368,7 @@
     const errorElement = document.getElementById("uploadError");
 
     if (!state.student || !location || !state.selectedFiles.length) {
-      errorElement.textContent = "제출할 사진을 한 장 이상 추가해 주세요.";
+      errorElement.textContent = "이 지역에 제출할 사진 1장을 선택해 주세요.";
       return;
     }
 
@@ -407,7 +395,7 @@
       errorElement.textContent =
         error instanceof Error ? error.message : "제출 중 오류가 발생했습니다.";
       button.disabled = false;
-      button.textContent = `${state.selectedFiles.length}장 제출하기`;
+      button.textContent = "이 사진 제출하기";
     }
   }
 
@@ -590,8 +578,10 @@
     );
 
     document.getElementById("submitMoreButton").addEventListener("click", () => {
-      renderUploadScreen();
-      showScreen("upload");
+      state.selectedLocationId = null;
+      clearSelectedImages();
+      saveState();
+      showScreen("locations");
     });
 
     document.getElementById("viewGalleryButton").addEventListener(
