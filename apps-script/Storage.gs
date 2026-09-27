@@ -47,13 +47,13 @@ function setupStorage() {
 
     if (!spreadsheet) {
       spreadsheet = SpreadsheetApp.create(CONFIG.SPREADSHEET_NAME);
-
-      DriveApp
-        .getFileById(spreadsheet.getId())
-        .moveTo(activityFolder);
-
       props.setProperty('SPREADSHEET_ID', spreadsheet.getId());
     }
+
+    // 기존 Sheet도 새 활동 폴더 아래로 이동하고 이름을 통일
+    const spreadsheetFile = DriveApp.getFileById(spreadsheet.getId());
+    spreadsheetFile.setName(CONFIG.SPREADSHEET_NAME);
+    spreadsheetFile.moveTo(activityFolder);
 
     let sheet = spreadsheet.getSheetByName('submissions');
 
@@ -61,16 +61,18 @@ function setupStorage() {
       sheet = spreadsheet.insertSheet('submissions');
     }
 
+    migrateSubmissionSheet_(sheet);
+
     if (sheet.getLastRow() === 0) {
       sheet
         .getRange(1, 1, 1, SHEET_HEADERS.length)
         .setValues([SHEET_HEADERS]);
-
-      sheet.setFrozenRows(1);
-
-      // 학번은 문자열로 유지
-      sheet.getRange('B:B').setNumberFormat('@');
     }
+
+    sheet.setFrozenRows(1);
+
+    // 학번은 문자열로 유지
+    sheet.getRange('B:B').setNumberFormat('@');
 
     return {
       success: true,
@@ -349,4 +351,43 @@ function getExtension_(mimeType) {
   };
 
   return map[mimeType] || '.img';
+}
+
+
+function migrateSubmissionSheet_(sheet) {
+  if (sheet.getLastRow() === 0) {
+    return;
+  }
+
+  const lastColumn = sheet.getLastColumn();
+  const headers = sheet
+    .getRange(1, 1, 1, lastColumn)
+    .getValues()[0]
+    .map(function(value) {
+      return String(value || '').trim();
+    });
+
+  // 이전 구조:
+  // record_id, class_id, student_number, student_name, ...
+  if (
+    headers.length >= 9 &&
+    headers[0] === 'record_id' &&
+    headers[1] === 'class_id'
+  ) {
+    sheet.deleteColumn(2);
+  }
+
+  // 새 헤더로 통일
+  const currentLastColumn = Math.max(sheet.getLastColumn(), SHEET_HEADERS.length);
+
+  if (currentLastColumn > SHEET_HEADERS.length) {
+    sheet.deleteColumns(
+      SHEET_HEADERS.length + 1,
+      currentLastColumn - SHEET_HEADERS.length
+    );
+  }
+
+  sheet
+    .getRange(1, 1, 1, SHEET_HEADERS.length)
+    .setValues([SHEET_HEADERS]);
 }
