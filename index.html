@@ -39,13 +39,6 @@
         </div>
 
         <label class="field">
-          <span>반</span>
-          <select id="classSelect" required>
-            <option value="">반을 선택하세요</option>
-          </select>
-        </label>
-
-        <label class="field">
           <span>이름</span>
           <input
             id="studentName"
@@ -73,6 +66,10 @@
         <p id="profileError" class="form-error" role="alert"></p>
         <button class="primary-button" type="submit">탐방 시작하기</button>
       </form>
+
+      <button id="teacherGalleryButton" class="teacher-entry-button" type="button">
+        선생님 전용 · 탐방 결과 보기
+      </button>
     </section>
 
     <section id="locationScreen" class="screen" aria-labelledby="locationTitle">
@@ -154,8 +151,7 @@
           <div id="previewGrid" class="preview-grid"></div>
         </div>
 
-        <div class="submission-summary">
-          <div><span>반</span><strong id="summaryClass"></strong></div>
+        <div class="submission-summary two-column">
           <div><span>이름</span><strong id="summaryName"></strong></div>
           <div><span>학번</span><strong id="summaryNumber"></strong></div>
         </div>
@@ -184,16 +180,12 @@
 
     <section id="galleryScreen" class="screen" aria-labelledby="galleryTitle">
       <div class="section-heading gallery-heading">
-        <button class="text-button" data-action="back-locations" type="button">← 탐방 화면</button>
+        <button id="galleryBackButton" class="text-button" type="button">← 돌아가기</button>
         <p class="eyebrow">CLASS GALLERY</p>
         <h2 id="galleryTitle">다문화 거리<br>탐방 결과</h2>
       </div>
 
       <div class="gallery-controls">
-        <label>
-          <span>반</span>
-          <select id="galleryClassSelect"></select>
-        </label>
         <div id="galleryFilters" class="filter-row" role="group" aria-label="지역 필터"></div>
       </div>
 
@@ -201,6 +193,18 @@
       <div id="galleryGrid" class="gallery-grid"></div>
     </section>
   </main>
+
+  <div id="teacherPasswordModal" class="password-modal hidden" role="dialog" aria-modal="true" aria-labelledby="teacherPasswordTitle">
+    <div class="password-card">
+      <button id="teacherPasswordClose" class="password-close" type="button" aria-label="닫기">×</button>
+      <p class="eyebrow">TEACHER ONLY</p>
+      <h2 id="teacherPasswordTitle">선생님 전용</h2>
+      <p>탐방 결과를 확인하려면 비밀번호를 입력하세요.</p>
+      <input id="teacherPasswordInput" type="password" inputmode="numeric" autocomplete="off" placeholder="비밀번호">
+      <p id="teacherPasswordError" class="form-error" role="alert"></p>
+      <button id="teacherPasswordSubmit" class="primary-button" type="button">결과 보기</button>
+    </div>
+  </div>
 
   <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true" aria-label="탐방 결과 크게 보기">
     <button id="lightboxClose" class="lightbox-close" type="button" aria-label="닫기">×</button>
