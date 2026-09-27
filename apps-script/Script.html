@@ -282,8 +282,36 @@ function isIPadLike() {
 
 function buildNaverDeepLink(location) {
   const appName = encodeURIComponent('multi_culture');
+  const placeName = location.naverPlaceName || '';
 
-  const params =
+  if (placeName) {
+    const placeParams =
+      'lat=' +
+      location.latitude +
+      '&lng=' +
+      location.longitude +
+      '&name=' +
+      encodeURIComponent(placeName) +
+      '&appname=' +
+      appName;
+
+    if (/Android/i.test(navigator.userAgent)) {
+      return (
+        'intent://place?' +
+        placeParams +
+        '#Intent;' +
+        'scheme=nmap;' +
+        'action=android.intent.action.VIEW;' +
+        'category=android.intent.category.BROWSABLE;' +
+        'package=com.nhn.android.nmap;' +
+        'end'
+      );
+    }
+
+    return 'nmap://place?' + placeParams;
+  }
+
+  const mapParams =
     'lat=' +
     location.latitude +
     '&lng=' +
@@ -296,7 +324,7 @@ function buildNaverDeepLink(location) {
   if (/Android/i.test(navigator.userAgent)) {
     return (
       'intent://map?' +
-      params +
+      mapParams +
       '#Intent;' +
       'scheme=nmap;' +
       'action=android.intent.action.VIEW;' +
@@ -306,7 +334,7 @@ function buildNaverDeepLink(location) {
     );
   }
 
-  return 'nmap://map?' + params;
+  return 'nmap://map?' + mapParams;
 }
 
 function openNaverMap() {
