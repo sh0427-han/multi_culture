@@ -24,39 +24,41 @@
     });
   }
 
-  async function demoUpload(payload, imageFile) {
+  function makeId() {
+    if (crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  async function demoUpload(payload, imageFiles) {
     const db = await openDemoDb();
-    const submission = {
+    const batchId = makeId();
+    const submittedAt = new Date().toISOString();
+
+    const submissions = imageFiles.map((imageFile, index) => ({
       ...payload,
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      submittedAt: new Date().toISOString(),
+      id: makeId(),
+      batchId,
+      imageIndex: index,
+      submittedAt,
       imageBlob: imageFile,
-    };
+    }));
 
     await new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
       const store = tx.objectStore(storeName);
-      const getAllRequest = store.getAll();
-
-      getAllRequest.onsuccess = () => {
-        const previous = (getAllRequest.result || []).find(
-          (item) =>
-            item.classId === payload.classId &&
-            item.studentNumber === payload.studentNumber,
-        );
-
-        if (previous) {
-          store.delete(previous.id);
-        }
-        store.put(submission);
-      };
-
+      submissions.forEach((submission) => store.put(submission));
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
 
     db.close();
-    return submission;
+    return {
+      batchId,
+      count: submissions.length,
+      submissions,
+    };
   }
 
   async function demoList({ classId, locationId }) {
@@ -83,7 +85,7 @@
       });
   }
 
-  async function apiUpload(payload, imageFile) {
+  async function apiUpload(payload, imageFiles) {
     if (!config.backendUrl) {
       throw new Error("backendUrl이 설정되지 않았습니다.");
     }
@@ -92,7 +94,10 @@
     Object.entries(payload).forEach(([key, value]) => {
       formData.append(key, value);
     });
-    formData.append("image", imageFile);
+
+    imageFiles.forEach((imageFile) => {
+      formData.append("images", imageFile, imageFile.name);
+    });
 
     const response = await fetch(
       `${config.backendUrl.replace(/\/$/, "")}/submissions`,
@@ -132,10 +137,10 @@
   }
 
   window.SubmissionApi = {
-    upload(payload, imageFile) {
+    upload(payload, imageFiles) {
       return config.storageMode === "api"
-        ? apiUpload(payload, imageFile)
-        : demoUpload(payload, imageFile);
+        ? apiUpload(payload, imageFiles)
+        : demoUpload(payload, imageFiles);
     },
 
     list(filters) {
