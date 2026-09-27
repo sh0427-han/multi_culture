@@ -1,0 +1,1155 @@
+<script>
+let APP_CONFIG = null;
+
+const state = {
+  student: null,
+  selectedLocationId: null,
+  submittedLocations: new Set(),
+  photoSource: null,
+  clipboardPayload: null,
+  galleryLocationId: '',
+  galleryItems: [],
+  teacherToken: null,
+  lightboxIndex: 0,
+  touchStartX: null,
+};
+
+const SESSION_KEY = 'multiCultureStudent';
+
+document.addEventListener('DOMContentLoaded', init);
+
+function gasCall(method, ...args) {
+  return new Promise(function(resolve, reject) {
+    const runner = google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(reject);
+
+    runner[method](...args);
+  });
+}
+
+async function init() {
+  bindEvents();
+
+  try {
+    APP_CONFIG = await gasCall('getClientConfig');
+    restoreStudent();
+
+    if (state.student) {
+      fillProfileForm();
+      await refreshSubmissionStatus();
+      showScreen('locationScreen');
+    } else {
+      showScreen('profileScreen');
+    }
+  } catch (error) {
+    console.error(error);
+    alert('앱 초기화 중 오류가 발생했습니다.');
+  }
+}
+
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(function(element) {
+    element.classList.remove('active');
+  });
+
+  document.getElementById(screenId).classList.add('active');
+  updateStudentBadge();
+  window.scrollTo(0, 0);
+}
+
+function saveStudent() {
+  sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify(state.student)
+  );
+}
+
+function restoreStudent() {
+  try {
+    const data = sessionStorage.getItem(SESSION_KEY);
+
+    if (data) {
+      state.student = JSON.parse(data);
+    }
+  } catch (error) {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+}
+
+function fillProfileForm() {
+  if (!state.student) {
+    return;
+  }
+
+  document.getElementById('studentNameInput').value =
+    state.student.studentName;
+
+  document.getElementById('studentNumberInput').value =
+    state.student.studentNumber;
+}
+
+function updateStudentBadge() {
+  const badge = document.getElementById('studentBadge');
+
+  if (!state.student) {
+    badge.classList.add('hidden');
+    return;
+  }
+
+  badge.textContent =
+    APP_CONFIG.grade +
+    '학년 · ' +
+    state.student.studentNumber +
+    ' ' +
+    state.student.studentName;
+
+  badge.classList.remove('hidden');
+}
+
+async function submitProfile(event) {
+  event.preventDefault();
+
+  const studentName =
+    document.getElementById('studentNameInput').value.trim();
+
+  const studentNumber =
+    document.getElementById('studentNumberInput').value.trim();
+
+  const error = document.getElementById('profileError');
+
+  if (studentName.length < 2) {
+    error.textContent = '이름을 정확하게 입력해주세요.';
+    return;
+  }
+
+  if (!/^\d{2,10}$/.test(studentNumber)) {
+    error.textContent = '학번은 숫자로 입력해주세요.';
+    return;
+  }
+
+  error.textContent = '';
+
+  state.student = {
+    studentName: studentName,
+    studentNumber: studentNumber,
+  };
+
+  saveStudent();
+  await refreshSubmissionStatus();
+  showScreen('locationScreen');
+}
+
+async function refreshSubmissionStatus() {
+  if (!state.student) {
+    return;
+  }
+
+  try {
+    const result = await gasCall(
+      'getStudentSubmissionStatus',
+      state.student.studentNumber
+    );
+
+    state.submittedLocations = new Set(result);
+  } catch (error) {
+    console.error(error);
+    state.submittedLocations = new Set();
+  }
+
+  renderLocations();
+}
+
+function getLocations() {
+  return Object.values(APP_CONFIG.locations);
+}
+
+function getCurrentLocation() {
+  return APP_CONFIG.locations[state.selectedLocationId];
+}
+
+function renderLocations() {
+  const grid = document.getElementById('locationGrid');
+  grid.replaceChildren();
+
+  getLocations().forEach(function(location) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'location-card';
+
+    const submitted = state.submittedLocations.has(location.id);
+
+    if (submitted) {
+      const badge = document.createElement('span');
+      badge.className = 'submitted-badge';
+      badge.textContent = '제출 완료';
+      card.appendChild(badge);
+    }
+
+    const index = document.createElement('span');
+    index.className = 'location-index';
+    index.textContent = location.index;
+
+    const title = document.createElement('h3');
+    title.innerHTML =
+      location.name +
+      '<br>' +
+      location.subtitle;
+
+    const description = document.createElement('p');
+    description.textContent = location.description;
+
+    const action = document.createElement('span');
+    action.className = 'location-action';
+    action.textContent = submitted
+      ? '다시 탐방 / 사진 교체 →'
+      : '이 지역 탐방 →';
+
+    card.append(
+      index,
+      title,
+      description,
+      action
+    );
+
+    card.addEventListener('click', function() {
+      selectLocation(location.id);
+    });
+
+    grid.appendChild(card);
+  });
+}
+
+function selectLocation(locationId) {
+  state.selectedLocationId = locationId;
+  clearPhoto();
+  renderExplore();
+  showScreen('exploreScreen');
+}
+
+function renderExplore() {
+  const location = getCurrentLocation();
+
+  document.getElementById('exploreTitle').innerHTML =
+    location.name +
+    '<br>' +
+    location.subtitle;
+
+  document.getElementById('exploreDescription').textContent =
+    location.description;
+}
+
+function isIPadLike() {
+  return (
+    /iPad/i.test(navigator.userAgent) ||
+    (
+      navigator.platform === 'MacIntel' &&
+      navigator.maxTouchPoints > 1
+    )
+  );
+}
+
+function buildNaverDeepLink(location) {
+  const appName = encodeURIComponent('multi_culture');
+
+  const params =
+    'lat=' +
+    location.latitude +
+    '&lng=' +
+    location.longitude +
+    '&zoom=' +
+    location.zoom +
+    '&appname=' +
+    appName;
+
+  if (/Android/i.test(navigator.userAgent)) {
+    return (
+      'intent://map?' +
+      params +
+      '#Intent;' +
+      'scheme=nmap;' +
+      'action=android.intent.action.VIEW;' +
+      'category=android.intent.category.BROWSABLE;' +
+      'package=com.nhn.android.nmap;' +
+      'end'
+    );
+  }
+
+  return 'nmap://map?' + params;
+}
+
+function openNaverMap() {
+  const location = getCurrentLocation();
+
+  if (!location) {
+    return;
+  }
+
+  const isMobile =
+    /Android|iPhone|iPod/i.test(navigator.userAgent) ||
+    isIPadLike();
+
+  if (!isMobile) {
+    window.open(
+      'https://map.naver.com/p/search/' +
+        encodeURIComponent(location.naverQuery),
+      '_blank'
+    );
+    return;
+  }
+
+  window.location.href = buildNaverDeepLink(location);
+}
+
+function prepareUploadScreen() {
+  const location = getCurrentLocation();
+
+  clearPhoto();
+
+  document.getElementById('uploadLocationLabel').textContent =
+    location.name + ' ' + location.subtitle;
+
+  document.getElementById('summaryNumber').textContent =
+    state.student.studentNumber;
+
+  document.getElementById('summaryName').textContent =
+    state.student.studentName;
+
+  document.getElementById('formStudentNumber').value =
+    state.student.studentNumber;
+
+  document.getElementById('formStudentName').value =
+    state.student.studentName;
+
+  document.getElementById('formLocationId').value =
+    state.selectedLocationId;
+
+  showScreen('uploadScreen');
+}
+
+function clearPhoto() {
+  state.photoSource = null;
+  state.clipboardPayload = null;
+
+  const fileInput = document.getElementById('imageInput');
+
+  if (fileInput) {
+    fileInput.value = '';
+  }
+
+  const preview = document.getElementById('imagePreview');
+
+  if (preview) {
+    preview.removeAttribute('src');
+  }
+
+  const previewSection = document.getElementById('previewSection');
+
+  if (previewSection) {
+    previewSection.classList.add('hidden');
+  }
+
+  const button = document.getElementById('submitPhotoButton');
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = '사진을 선택해주세요';
+  }
+
+  showUploadError('');
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    showUploadError('이미지 파일만 선택할 수 있습니다.');
+    return;
+  }
+
+  const maxBytes =
+    APP_CONFIG.maxImageSizeMb * 1024 * 1024;
+
+  if (file.size > maxBytes) {
+    showUploadError(
+      '사진은 ' +
+        APP_CONFIG.maxImageSizeMb +
+        'MB 이하만 가능합니다.'
+    );
+    return;
+  }
+
+  state.photoSource = 'file';
+  state.clipboardPayload = null;
+  showUploadError('');
+
+  const reader = new FileReader();
+
+  reader.onload = function() {
+    showPreview(reader.result);
+  };
+
+  reader.readAsDataURL(file);
+}
+
+async function pasteFromClipboard() {
+  showUploadError('');
+
+  if (!navigator.clipboard || !navigator.clipboard.read) {
+    showUploadError(
+      '이 브라우저에서는 클립보드 이미지 읽기를 지원하지 않습니다. 사진 파일 선택을 이용해주세요.'
+    );
+    return;
+  }
+
+  try {
+    const items = await navigator.clipboard.read();
+    let foundBlob = null;
+
+    for (const item of items) {
+      const imageType = item.types.find(function(type) {
+        return type.startsWith('image/');
+      });
+
+      if (imageType) {
+        foundBlob = await item.getType(imageType);
+        break;
+      }
+    }
+
+    if (!foundBlob) {
+      showUploadError(
+        '클립보드에서 이미지를 찾지 못했습니다.'
+      );
+      return;
+    }
+
+    await setClipboardBlob(foundBlob);
+  } catch (error) {
+    console.error(error);
+    showUploadError(
+      '클립보드 접근이 허용되지 않았습니다. 사진 파일 선택을 이용해주세요.'
+    );
+  }
+}
+
+async function setClipboardBlob(blob) {
+  const maxBytes =
+    APP_CONFIG.maxImageSizeMb * 1024 * 1024;
+
+  if (blob.size > maxBytes) {
+    showUploadError(
+      '사진은 ' +
+        APP_CONFIG.maxImageSizeMb +
+        'MB 이하만 가능합니다.'
+    );
+    return;
+  }
+
+  const dataUrl = await blobToDataUrl(blob);
+  const commaIndex = dataUrl.indexOf(',');
+  const base64 = dataUrl.substring(commaIndex + 1);
+
+  const extension =
+    blob.type === 'image/jpeg'
+      ? '.jpg'
+      : '.png';
+
+  state.photoSource = 'clipboard';
+  state.clipboardPayload = {
+    base64: base64,
+    mimeType: blob.type || 'image/png',
+    fileName:
+      'clipboard-' +
+      Date.now() +
+      extension,
+  };
+
+  document.getElementById('imageInput').value = '';
+  showPreview(dataUrl);
+}
+
+function blobToDataUrl(blob) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function() {
+      resolve(reader.result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function handlePasteEvent(event) {
+  if (
+    !document
+      .getElementById('uploadScreen')
+      .classList.contains('active')
+  ) {
+    return;
+  }
+
+  const files = Array.from(
+    event.clipboardData?.files || []
+  );
+
+  const image = files.find(function(file) {
+    return file.type.startsWith('image/');
+  });
+
+  if (!image) {
+    return;
+  }
+
+  event.preventDefault();
+  setClipboardBlob(image);
+}
+
+function showPreview(dataUrl) {
+  const section = document.getElementById('previewSection');
+  const image = document.getElementById('imagePreview');
+
+  image.src = dataUrl;
+  section.classList.remove('hidden');
+
+  const button = document.getElementById('submitPhotoButton');
+  button.disabled = false;
+  button.textContent = '이 사진 제출하기';
+}
+
+function showUploadError(message) {
+  const element = document.getElementById('uploadError');
+
+  if (element) {
+    element.textContent = message;
+  }
+}
+
+async function submitCurrentPhoto() {
+  if (!state.photoSource) {
+    showUploadError('사진을 선택해주세요.');
+    return;
+  }
+
+  const button = document.getElementById('submitPhotoButton');
+  button.disabled = true;
+  button.textContent = '제출 중...';
+  showUploadError('');
+
+  try {
+    let result;
+
+    if (state.photoSource === 'file') {
+      result = await submitFormPhoto();
+    } else {
+      result = await submitClipboardImage();
+    }
+
+    state.submittedLocations.add(result.locationId);
+    clearPhoto();
+    showScreen('successScreen');
+  } catch (error) {
+    console.error(error);
+
+    showUploadError(
+      error.message ||
+        '사진 제출에 실패했습니다.'
+    );
+
+    button.disabled = false;
+    button.textContent = '이 사진 제출하기';
+  }
+}
+
+function submitFormPhoto() {
+  const form = document.getElementById('uploadForm');
+
+  return new Promise(function(resolve, reject) {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(reject)
+      .submitPhoto(form);
+  });
+}
+
+function submitClipboardImage() {
+  const payload = {
+    studentNumber: state.student.studentNumber,
+    studentName: state.student.studentName,
+    locationId: state.selectedLocationId,
+    base64: state.clipboardPayload.base64,
+    mimeType: state.clipboardPayload.mimeType,
+    fileName: state.clipboardPayload.fileName,
+  };
+
+  return gasCall(
+    'submitClipboardPhoto',
+    payload
+  );
+}
+
+function showTeacherPasswordModal() {
+  const modal = document.getElementById('teacherPasswordModal');
+
+  document.getElementById('teacherPasswordInput').value = '';
+  document.getElementById('teacherPasswordError').textContent = '';
+  modal.classList.remove('hidden');
+
+  setTimeout(function() {
+    document.getElementById('teacherPasswordInput').focus();
+  }, 0);
+}
+
+function closeTeacherPasswordModal() {
+  document
+    .getElementById('teacherPasswordModal')
+    .classList.add('hidden');
+
+  document.getElementById('teacherPasswordError').textContent = '';
+}
+
+async function submitTeacherPassword() {
+  const input = document.getElementById('teacherPasswordInput');
+  const error = document.getElementById('teacherPasswordError');
+  const button = document.getElementById('teacherPasswordSubmit');
+
+  error.textContent = '';
+  button.disabled = true;
+  button.textContent = '확인 중...';
+
+  try {
+    const result = await gasCall(
+      'authenticateTeacher',
+      input.value
+    );
+
+    state.teacherToken = result.token;
+
+    closeTeacherPasswordModal();
+    openTeacherGallery();
+  } catch (failure) {
+    error.textContent =
+      failure.message ||
+      '비밀번호가 올바르지 않습니다.';
+  } finally {
+    button.disabled = false;
+    button.textContent = '결과 보기';
+  }
+}
+
+function openTeacherGallery() {
+  state.galleryLocationId = '';
+  renderGalleryFilters();
+  showScreen('galleryScreen');
+  loadGallery();
+}
+
+function renderGalleryFilters() {
+  const container = document.getElementById('galleryFilters');
+  container.replaceChildren();
+
+  const filters = [
+    {
+      id: '',
+      label: '전체',
+    },
+    ...getLocations().map(function(location) {
+      return {
+        id: location.id,
+        label: location.name,
+      };
+    }),
+  ];
+
+  filters.forEach(function(filter) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'filter-button';
+
+    if (state.galleryLocationId === filter.id) {
+      button.classList.add('active');
+    }
+
+    button.textContent = filter.label;
+
+    button.addEventListener('click', function() {
+      state.galleryLocationId = filter.id;
+      renderGalleryFilters();
+      loadGallery();
+    });
+
+    container.appendChild(button);
+  });
+}
+
+async function loadGallery() {
+  const grid = document.getElementById('galleryGrid');
+  const status = document.getElementById('galleryStatus');
+
+  grid.replaceChildren();
+  status.textContent = '탐방 결과 불러오는 중...';
+
+  if (!state.teacherToken) {
+    status.textContent = '교사 인증이 필요합니다.';
+    return;
+  }
+
+  try {
+    const items = await gasCall(
+      'getGallery',
+      state.teacherToken,
+      state.galleryLocationId
+    );
+
+    state.galleryItems = items;
+
+    status.textContent =
+      items.length +
+      '개의 탐방 결과';
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'panel';
+      empty.textContent = '아직 제출된 사진이 없습니다.';
+      grid.appendChild(empty);
+      return;
+    }
+
+    items.forEach(function(item, index) {
+      grid.appendChild(
+        createGalleryCard(item, index)
+      );
+    });
+  } catch (error) {
+    console.error(error);
+    status.textContent =
+      error.message ||
+      '탐방 결과를 불러오지 못했습니다.';
+
+    if (
+      String(error.message || '')
+        .includes('인증')
+    ) {
+      state.teacherToken = null;
+    }
+  }
+}
+
+function createGalleryCard(item, index) {
+  const card = document.createElement('article');
+  card.className = 'gallery-card';
+  card.tabIndex = 0;
+  card.setAttribute('role', 'button');
+  card.setAttribute('aria-label', '사진 크게 보기');
+
+  const imageWrap = document.createElement('div');
+  imageWrap.className = 'gallery-image-wrap';
+
+  const placeholder = document.createElement('span');
+  placeholder.className = 'gallery-placeholder';
+  placeholder.textContent = '사진 불러오는 중...';
+
+  imageWrap.appendChild(placeholder);
+
+  const info = document.createElement('div');
+  info.className = 'gallery-info';
+
+  const student = document.createElement('strong');
+  student.textContent =
+    item.studentNumber +
+    ' ' +
+    item.studentName;
+
+  const location = document.createElement('span');
+  location.textContent = item.locationName;
+
+  info.append(student, location);
+  card.append(imageWrap, info);
+
+  card.addEventListener('click', function() {
+    openLightbox(index);
+  });
+
+  card.addEventListener('keydown', function(event) {
+    if (
+      event.key === 'Enter' ||
+      event.key === ' '
+    ) {
+      event.preventDefault();
+      openLightbox(index);
+    }
+  });
+
+  loadThumbnail(item, imageWrap);
+
+  return card;
+}
+
+async function loadThumbnail(item, imageWrap) {
+  try {
+    const result = await gasCall(
+      'getImageData',
+      state.teacherToken,
+      item.recordId,
+      true
+    );
+
+    const image = document.createElement('img');
+    image.src = result.dataUrl;
+    image.alt = item.locationName;
+    image.loading = 'lazy';
+
+    imageWrap.replaceChildren(image);
+  } catch (error) {
+    imageWrap.textContent =
+      '이미지를 불러올 수 없습니다.';
+  }
+}
+
+async function openLightbox(index) {
+  if (state.galleryItems.length === 0) {
+    return;
+  }
+
+  state.lightboxIndex = index;
+
+  document
+    .getElementById('lightbox')
+    .classList.remove('hidden');
+
+  document.body.style.overflow = 'hidden';
+
+  await renderLightbox();
+}
+
+async function renderLightbox() {
+  const item = state.galleryItems[state.lightboxIndex];
+  const image = document.getElementById('lightboxImage');
+  const loading = document.getElementById('lightboxLoading');
+
+  image.classList.add('hidden');
+  loading.textContent = '사진 불러오는 중...';
+  loading.classList.remove('hidden');
+
+  document.getElementById('lightboxStudent').textContent =
+    item.studentNumber +
+    ' ' +
+    item.studentName;
+
+  document.getElementById('lightboxLocation').textContent =
+    item.locationName;
+
+  document.getElementById('lightboxCounter').textContent =
+    state.lightboxIndex +
+    1 +
+    ' / ' +
+    state.galleryItems.length;
+
+  try {
+    const result = await gasCall(
+      'getImageData',
+      state.teacherToken,
+      item.recordId,
+      false
+    );
+
+    image.src = result.dataUrl;
+    loading.classList.add('hidden');
+    image.classList.remove('hidden');
+  } catch (error) {
+    loading.textContent =
+      error.message ||
+      '이미지를 불러올 수 없습니다.';
+  }
+}
+
+function moveLightbox(direction) {
+  const count = state.galleryItems.length;
+
+  if (count === 0) {
+    return;
+  }
+
+  state.lightboxIndex =
+    (
+      state.lightboxIndex +
+      direction +
+      count
+    ) %
+    count;
+
+  renderLightbox();
+}
+
+function closeLightbox() {
+  document
+    .getElementById('lightbox')
+    .classList.add('hidden');
+
+  document.body.style.overflow = '';
+}
+
+function bindEvents() {
+  document
+    .getElementById('profileForm')
+    .addEventListener(
+      'submit',
+      submitProfile
+    );
+
+  document
+    .getElementById('editProfileButton')
+    .addEventListener(
+      'click',
+      function() {
+        showScreen('profileScreen');
+      }
+    );
+
+  document
+    .getElementById('backLocationButton')
+    .addEventListener(
+      'click',
+      function() {
+        showScreen('locationScreen');
+      }
+    );
+
+  document
+    .getElementById('openNaverButton')
+    .addEventListener(
+      'click',
+      openNaverMap
+    );
+
+  document
+    .getElementById('goUploadButton')
+    .addEventListener(
+      'click',
+      prepareUploadScreen
+    );
+
+  document
+    .getElementById('backExploreButton')
+    .addEventListener(
+      'click',
+      function() {
+        showScreen('exploreScreen');
+      }
+    );
+
+  document
+    .getElementById('imageInput')
+    .addEventListener(
+      'change',
+      handleFileSelect
+    );
+
+  document
+    .getElementById('pasteImageButton')
+    .addEventListener(
+      'click',
+      pasteFromClipboard
+    );
+
+  document
+    .getElementById('clearPhotoButton')
+    .addEventListener(
+      'click',
+      clearPhoto
+    );
+
+  document
+    .getElementById('submitPhotoButton')
+    .addEventListener(
+      'click',
+      submitCurrentPhoto
+    );
+
+  document
+    .getElementById('exploreAnotherButton')
+    .addEventListener(
+      'click',
+      async function() {
+        state.selectedLocationId = null;
+        await refreshSubmissionStatus();
+        showScreen('locationScreen');
+      }
+    );
+
+  document
+    .getElementById('teacherGalleryButton')
+    .addEventListener(
+      'click',
+      showTeacherPasswordModal
+    );
+
+  document
+    .getElementById('teacherPasswordClose')
+    .addEventListener(
+      'click',
+      closeTeacherPasswordModal
+    );
+
+  document
+    .getElementById('teacherPasswordSubmit')
+    .addEventListener(
+      'click',
+      submitTeacherPassword
+    );
+
+  document
+    .getElementById('teacherPasswordInput')
+    .addEventListener(
+      'keydown',
+      function(event) {
+        if (event.key === 'Enter') {
+          submitTeacherPassword();
+        }
+      }
+    );
+
+  document
+    .getElementById('teacherPasswordModal')
+    .addEventListener(
+      'click',
+      function(event) {
+        if (
+          event.target.id ===
+          'teacherPasswordModal'
+        ) {
+          closeTeacherPasswordModal();
+        }
+      }
+    );
+
+  document
+    .getElementById('galleryBackButton')
+    .addEventListener(
+      'click',
+      function() {
+        showScreen('profileScreen');
+      }
+    );
+
+  document
+    .getElementById('lightboxClose')
+    .addEventListener(
+      'click',
+      closeLightbox
+    );
+
+  document
+    .getElementById('lightboxPrev')
+    .addEventListener(
+      'click',
+      function() {
+        moveLightbox(-1);
+      }
+    );
+
+  document
+    .getElementById('lightboxNext')
+    .addEventListener(
+      'click',
+      function() {
+        moveLightbox(1);
+      }
+    );
+
+  document
+    .getElementById('homeButton')
+    .addEventListener(
+      'click',
+      function() {
+        showScreen(
+          state.student
+            ? 'locationScreen'
+            : 'profileScreen'
+        );
+      }
+    );
+
+  document.addEventListener(
+    'paste',
+    handlePasteEvent
+  );
+
+  document.addEventListener(
+    'keydown',
+    function(event) {
+      const lightbox =
+        document.getElementById('lightbox');
+
+      if (
+        lightbox.classList.contains('hidden')
+      ) {
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        closeLightbox();
+      } else if (event.key === 'ArrowLeft') {
+        moveLightbox(-1);
+      } else if (event.key === 'ArrowRight') {
+        moveLightbox(1);
+      }
+    }
+  );
+
+  const lightbox =
+    document.getElementById('lightbox');
+
+  lightbox.addEventListener(
+    'click',
+    function(event) {
+      if (event.target === lightbox) {
+        closeLightbox();
+      }
+    }
+  );
+
+  lightbox.addEventListener(
+    'touchstart',
+    function(event) {
+      state.touchStartX =
+        event.changedTouches[0]?.clientX ?? null;
+    },
+    { passive: true }
+  );
+
+  lightbox.addEventListener(
+    'touchend',
+    function(event) {
+      if (state.touchStartX === null) {
+        return;
+      }
+
+      const endX =
+        event.changedTouches[0]?.clientX ??
+        state.touchStartX;
+
+      const diff =
+        endX -
+        state.touchStartX;
+
+      state.touchStartX = null;
+
+      if (Math.abs(diff) < 50) {
+        return;
+      }
+
+      moveLightbox(
+        diff > 0
+          ? -1
+          : 1
+      );
+    },
+    { passive: true }
+  );
+}
+</script>
