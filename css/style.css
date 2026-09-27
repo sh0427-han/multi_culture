@@ -834,3 +834,74 @@ footer {
     max-height: calc(100vh - 170px);
   }
 }
+
+
+.teacher-entry-button {
+  margin-top: 14px;
+  border: 0;
+  padding: 8px 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.submission-summary.two-column {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.password-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 10, 9, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.password-card {
+  position: relative;
+  width: min(100%, 420px);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 26px;
+  background: white;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+}
+
+.password-card h2 {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.password-card > p:not(.eyebrow):not(.form-error) {
+  margin: 0 0 18px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.password-card input {
+  margin-bottom: 8px;
+}
+
+.password-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: #f2f4f0;
+  font-size: 22px;
+}
+
+@media (max-width: 640px) {
+  .submission-summary.two-column {
+    grid-template-columns: 1fr;
+  }
+}
