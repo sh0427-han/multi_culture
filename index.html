@@ -98,7 +98,7 @@
           <li>아래 버튼으로 네이버 지도 앱을 엽니다.</li>
           <li>지정된 탐방 시작점이 확대되어 열리면 <strong>거리뷰</strong>를 실행합니다.</li>
           <li>주변을 이동하며 다문화 경관이 잘 나타나는 장면을 캡처합니다.</li>
-          <li>여러 장을 캡처해도 됩니다. 학습지로 돌아와 한 번에 제출할 수 있습니다.</li>
+          <li>이 지역에서 가장 적절한 장면 <strong>1장</strong>을 캡처해 제출합니다.</li>
         </ol>
       </div>
 
@@ -126,16 +126,16 @@
       <div class="panel upload-panel">
         <div class="upload-actions">
           <label class="upload-dropzone" for="imageInput">
-            <input id="imageInput" type="file" accept="image/*" multiple>
+            <input id="imageInput" type="file" accept="image/*">
             <span class="upload-icon">＋</span>
             <strong>사진 파일 선택</strong>
-            <small>갤러리에서 여러 장을 한 번에 선택할 수 있습니다.</small>
+            <small>이 지역을 대표하는 캡처 이미지 1장을 선택하세요.</small>
           </label>
 
           <button id="pasteImageButton" class="clipboard-button" type="button">
             <span class="clipboard-icon">⌘</span>
             <strong>클립보드 이미지 붙여넣기</strong>
-            <small>캡처 후 클립보드에 이미지가 있다면 바로 가져옵니다.</small>
+            <small>캡처 후 클립보드의 이미지 1장을 바로 가져옵니다.</small>
           </button>
         </div>
 
@@ -145,9 +145,9 @@
 
         <div id="previewSection" class="preview-section hidden">
           <div class="preview-header">
-            <strong id="previewCount">0장 선택됨</strong>
+            <strong id="previewCount">사진 미리보기</strong>
             <div>
-              <button id="addMoreButton" class="small-button" type="button">사진 추가</button>
+              <button id="addMoreButton" class="small-button" type="button">사진 바꾸기</button>
               <button id="clearImagesButton" class="small-button" type="button">전체 지우기</button>
             </div>
           </div>
@@ -172,9 +172,9 @@
         <div class="success-check">✓</div>
         <p class="eyebrow">SUBMITTED</p>
         <h2 id="successTitle">제출이 완료되었습니다</h2>
-        <p>추가 사진을 제출하거나 친구들이 선택한 장면과 비교해 보세요.</p>
+        <p>다른 지역도 탐방해 한 지역당 한 장씩 추가로 제출할 수 있습니다.</p>
         <button id="submitMoreButton" class="secondary-button" type="button">
-          사진 더 제출하기
+          다른 지역 탐방하기
         </button>
         <button id="viewGalleryButton" class="primary-button" type="button">
           우리 수업 결과 보기
