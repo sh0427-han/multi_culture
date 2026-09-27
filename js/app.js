@@ -22,6 +22,9 @@
   };
 
   let previewUrls = [];
+  let galleryItems = [];
+  let lightboxIndex = 0;
+  let lightboxTouchStartX = null;
 
   function saveState() {
     sessionStorage.setItem(
@@ -436,6 +439,52 @@
     });
   }
 
+  function renderLightbox() {
+    if (!galleryItems.length) {
+      return;
+    }
+
+    const submission = galleryItems[lightboxIndex];
+    const location =
+      locations.find((item) => item.id === submission.locationId);
+
+    document.getElementById("lightboxImage").src =
+      submission.imageUrl || submission.image_url || "";
+    document.getElementById("lightboxStudent").textContent =
+      `${submission.studentNumber} ${submission.studentName}`;
+    document.getElementById("lightboxLocation").textContent = location
+      ? `${location.name} ${location.subtitle}`
+      : "";
+    document.getElementById("lightboxCounter").textContent =
+      `${lightboxIndex + 1} / ${galleryItems.length}`;
+  }
+
+  function openLightbox(index) {
+    if (!galleryItems.length) {
+      return;
+    }
+
+    lightboxIndex = index;
+    renderLightbox();
+    document.getElementById("lightbox").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    document.getElementById("lightbox").classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+
+  function moveLightbox(step) {
+    if (!galleryItems.length) {
+      return;
+    }
+
+    lightboxIndex =
+      (lightboxIndex + step + galleryItems.length) % galleryItems.length;
+    renderLightbox();
+  }
+
   async function loadGallery() {
     const classId = document.getElementById("galleryClassSelect").value;
     const grid = document.getElementById("galleryGrid");
@@ -450,6 +499,7 @@
         locationId: state.galleryLocationId,
       });
 
+      galleryItems = submissions;
       status.textContent = `${classId}반 · ${submissions.length}개의 장면`;
 
       if (!submissions.length) {
@@ -460,7 +510,7 @@
         return;
       }
 
-      submissions.forEach((submission) => {
+      submissions.forEach((submission, index) => {
         const location =
           locations.find((item) => item.id === submission.locationId);
         const card = document.createElement("article");
@@ -485,6 +535,16 @@
 
         info.append(studentLabel, locationLabel);
         card.append(image, info);
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.setAttribute("aria-label", "사진 크게 보기");
+        card.addEventListener("click", () => openLightbox(index));
+        card.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openLightbox(index);
+          }
+        });
         grid.appendChild(card);
       });
     } catch (error) {
@@ -611,6 +671,59 @@
     });
 
     document.addEventListener("paste", handlePasteEvent);
+
+    document.getElementById("lightboxClose").addEventListener(
+      "click",
+      closeLightbox,
+    );
+    document.getElementById("lightboxPrev").addEventListener("click", () => {
+      moveLightbox(-1);
+    });
+    document.getElementById("lightboxNext").addEventListener("click", () => {
+      moveLightbox(1);
+    });
+
+    const lightbox = document.getElementById("lightbox");
+    lightbox.addEventListener("click", (event) => {
+      if (event.target === lightbox) {
+        closeLightbox();
+      }
+    });
+
+    lightbox.addEventListener("touchstart", (event) => {
+      lightboxTouchStartX = event.changedTouches[0]?.clientX ?? null;
+    }, { passive: true });
+
+    lightbox.addEventListener("touchend", (event) => {
+      if (lightboxTouchStartX === null) {
+        return;
+      }
+
+      const endX = event.changedTouches[0]?.clientX ?? lightboxTouchStartX;
+      const deltaX = endX - lightboxTouchStartX;
+      lightboxTouchStartX = null;
+
+      if (Math.abs(deltaX) < 50) {
+        return;
+      }
+
+      moveLightbox(deltaX > 0 ? -1 : 1);
+    }, { passive: true });
+
+    document.addEventListener("keydown", (event) => {
+      const isOpen = !lightbox.classList.contains("hidden");
+      if (!isOpen) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        closeLightbox();
+      } else if (event.key === "ArrowLeft") {
+        moveLightbox(-1);
+      } else if (event.key === "ArrowRight") {
+        moveLightbox(1);
+      }
+    });
   }
 
   function restoreForm() {
