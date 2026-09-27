@@ -134,7 +134,7 @@ backendUrl: "https://YOUR-WORKER.workers.dev",
 - studentNumber
 - locationId
 - locationName
-- images: 여러 개 허용
+- images: 정확히 1개
 
 ### GET /submissions
 
