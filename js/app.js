@@ -344,11 +344,17 @@
 
         const info = document.createElement("div");
         info.className = "gallery-card-info";
-        info.innerHTML = `
-          <strong>${submission.studentNumber} ${maskName(submission.studentName)}</strong>
-          <span>${location ? `${location.name} ${location.subtitle}` : ""}</span>
-        `;
 
+        const studentLabel = document.createElement("strong");
+        studentLabel.textContent =
+          `${submission.studentNumber} ${maskName(submission.studentName)}`;
+
+        const locationLabel = document.createElement("span");
+        locationLabel.textContent = location
+          ? `${location.name} ${location.subtitle}`
+          : "";
+
+        info.append(studentLabel, locationLabel);
         card.append(image, info);
         grid.appendChild(card);
       });
