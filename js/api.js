@@ -32,23 +32,41 @@
   }
 
   async function demoUpload(payload, imageFiles) {
+    const imageFile = imageFiles[0];
+    if (!imageFile || imageFiles.length !== 1) {
+      throw new Error("지역별로 사진 1장만 제출할 수 있습니다.");
+    }
+
     const db = await openDemoDb();
     const batchId = makeId();
     const submittedAt = new Date().toISOString();
-
-    const submissions = imageFiles.map((imageFile, index) => ({
+    const submission = {
       ...payload,
       id: makeId(),
       batchId,
-      imageIndex: index,
       submittedAt,
       imageBlob: imageFile,
-    }));
+    };
 
     await new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
       const store = tx.objectStore(storeName);
-      submissions.forEach((submission) => store.put(submission));
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const previous = (request.result || []).find(
+          (item) =>
+            item.classId === payload.classId &&
+            item.studentNumber === payload.studentNumber &&
+            item.locationId === payload.locationId,
+        );
+
+        if (previous) {
+          store.delete(previous.id);
+        }
+        store.put(submission);
+      };
+
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
@@ -56,8 +74,8 @@
     db.close();
     return {
       batchId,
-      count: submissions.length,
-      submissions,
+      count: 1,
+      submissions: [submission],
     };
   }
 
