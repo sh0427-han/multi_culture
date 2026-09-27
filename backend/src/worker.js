@@ -390,6 +390,23 @@ function extensionForType(type) {
   return map[type] || "img";
 }
 
+async function deleteDriveFile(token, fileId) {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!response.ok && response.status !== 404) {
+    const body = await response.text();
+    throw new Error(`Drive file deletion failed: ${body}`);
+  }
+}
+
 async function uploadDriveFile(token, parentId, file) {
   const metadata = {
     name: `${makeId()}.${extensionForType(file.type)}`,
@@ -463,13 +480,14 @@ async function createSubmissions(request, env) {
     .getAll("images")
     .filter((value) => value instanceof File && value.type.startsWith("image/"));
 
-  if (!images.length) {
-    return json({ error: "At least one image is required." }, 400);
+  if (images.length !== 1) {
+    return json({ error: "Exactly one image is required per location." }, 400);
   }
 
+  const image = images[0];
   const maxBytes = 10 * 1024 * 1024;
-  if (images.some((file) => file.size > maxBytes)) {
-    return json({ error: "Each image must be 10MB or smaller." }, 400);
+  if (image.size > maxBytes) {
+    return json({ error: "The image must be 10MB or smaller." }, 400);
   }
 
   const token = await accessToken(env);
@@ -491,41 +509,53 @@ async function createSubmissions(request, env) {
     classFolderId,
   );
 
+  const studentNumber = String(form.get("studentNumber"));
+  const previous = await env.DB.prepare(
+    `SELECT id, file_id
+     FROM submissions
+     WHERE class_id = ? AND student_number = ? AND location_id = ?
+     ORDER BY submitted_at DESC
+     LIMIT 1`,
+  )
+    .bind(classId, studentNumber, locationId)
+    .first();
+
+  if (previous) {
+    await deleteDriveFile(token, previous.file_id);
+    await env.DB.prepare("DELETE FROM submissions WHERE id = ?")
+      .bind(previous.id)
+      .run();
+  }
+
   const batchId = makeId();
   const submittedAt = new Date().toISOString();
-  const saved = [];
+  const fileId = await uploadDriveFile(token, locationFolderId, image);
+  const id = makeId();
 
-  for (const image of images) {
-    const fileId = await uploadDriveFile(token, locationFolderId, image);
-    const id = makeId();
-
-    await env.DB.prepare(
-      `INSERT INTO submissions(
-        id, batch_id, grade, class_id, student_name, student_number,
-        location_id, location_name, file_id, mime_type, submitted_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  await env.DB.prepare(
+    `INSERT INTO submissions(
+      id, batch_id, grade, class_id, student_name, student_number,
+      location_id, location_name, file_id, mime_type, submitted_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      id,
+      batchId,
+      String(form.get("grade") || "2"),
+      classId,
+      String(form.get("studentName")),
+      studentNumber,
+      locationId,
+      String(form.get("locationName") || locationId),
+      fileId,
+      image.type,
+      submittedAt,
     )
-      .bind(
-        id,
-        batchId,
-        String(form.get("grade") || "2"),
-        classId,
-        String(form.get("studentName")),
-        String(form.get("studentNumber")),
-        locationId,
-        String(form.get("locationName") || locationId),
-        fileId,
-        image.type,
-        submittedAt,
-      )
-      .run();
-
-    saved.push({ id, fileId });
-  }
+    .run();
 
   return json({
     batchId,
-    count: saved.length,
+    count: 1,
     submittedAt,
   });
 }
