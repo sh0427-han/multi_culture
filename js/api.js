@@ -35,7 +35,22 @@
 
     await new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
-      tx.objectStore(storeName).put(submission);
+      const store = tx.objectStore(storeName);
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const previous = (getAllRequest.result || []).find(
+          (item) =>
+            item.classId === payload.classId &&
+            item.studentNumber === payload.studentNumber,
+        );
+
+        if (previous) {
+          store.delete(previous.id);
+        }
+        store.put(submission);
+      };
+
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
